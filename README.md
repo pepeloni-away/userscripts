@@ -29,5 +29,5 @@ This adds the following to chiaki:
 * the ability to open search results in new tabs via image middle click.
 
 ## [Twitch DVR player](https://github.com/pepeloni-away/userscripts/raw/main/twitch-dvr-player.user.js)
-Full credits to the extension at https://github.com/caeleel/twitch-dvr#twitch-dvr-player.
+Full credits to the extension at https://github.com/caeleel/twitch-dvr#twitch-dvr-player.  
 This is just a way to run the extension without manually loading it into each browser you use.
