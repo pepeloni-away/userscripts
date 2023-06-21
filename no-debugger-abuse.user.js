@@ -25,7 +25,8 @@ try { // this will fail if ublock runs first and its filters set console.clear t
              * Try commenting the line if some page doesn't load, but i think absolutely nobody has any reason to use
              * console.clear inside an inline script (or at all, really), unless it's used together with debugger
              * and new Date().getTime() to try and block dev tools access. */
-            throw new TypeError("Baaaaka! I'm not clearing it.")
+            // throw new TypeError("Baaaaka! I'm not clearing it.")
+            return
         }
     })
     Object.defineProperties(self.console, {
