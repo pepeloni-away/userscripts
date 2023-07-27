@@ -4,7 +4,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.0
+// @version     1.1
 // @description Allow fullscreen for youtube iframes embedded on any page
 // @grant       none
 // @match       *://*/*
@@ -37,3 +37,16 @@ HTMLIFrameElement.prototype.setAttribute = new Proxy(HTMLIFrameElement.prototype
         return target.apply(thisArg, args)
     }
 })
+
+// for iframes that are already part of page html
+const interval = setInterval(_ => {
+    const a = [...document.querySelectorAll("iframe")].filter(e => e.getAttribute("allowFullscreen") !== "" && RegExp(urls).test(e.src))
+    console.log(a)
+    for (const i of a) {
+        allowFullscreen(i)
+        i.src = i.src
+    }
+}, 1e3)
+setTimeout(_ => {
+    clearInterval(interval)
+}, 5e3)
