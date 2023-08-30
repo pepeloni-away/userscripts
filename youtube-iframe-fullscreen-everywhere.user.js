@@ -41,7 +41,6 @@ HTMLIFrameElement.prototype.setAttribute = new Proxy(HTMLIFrameElement.prototype
 // for iframes that are already part of page html
 const interval = setInterval(_ => {
     const a = [...document.querySelectorAll("iframe")].filter(e => e.getAttribute("allowFullscreen") !== "" && RegExp(urls).test(e.src))
-    console.log(a)
     for (const i of a) {
         allowFullscreen(i)
         i.src = i.src
