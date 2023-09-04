@@ -26,6 +26,7 @@ Adds a shortcut to chiaki's watch order page on any myanimelist/anime page.
 This adds the following to chiaki:
 * animixplay's external streaming links.
 * fetch anime info by clicking on it's picture.
+* links to openings and endings from animethemes.moe using themes.moe api.
 * the ability to open search results in new tabs via image middle click.
 
 ## [Twitch DVR player](https://github.com/pepeloni-away/userscripts/raw/main/twitch-dvr-player.user.js)
