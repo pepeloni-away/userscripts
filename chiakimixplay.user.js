@@ -39,16 +39,20 @@ self.addEventListener("load", function() {
         // add a button to request streaming links from animix, the api still works
         const btn = document.createElement("button")
         btn.innerText = "grab links"
-        btn.style.cssText = "border: medium none; background: transparent; color: inherit; cursor: pointer;"
+        btn.style.cssText = "border: medium none; background: transparent; color: inherit; cursor: pointer; padding: 0px;"
         btn.onclick = function() {
             this.previousSibling.remove()
             this.style.display = "none"
             const xhr = GM_xmlhttpRequest({
                 url: `https://animixplay.to/assets/rec/${malId}.json`,
+                // they actually updated the api after the site shut down? --- nevermind, /search has newer links but doesn't work for every anime like the old one
+                /*url: "https://animixplay.to/api/search",
+                method: "POST",
+                data: "recgen=" + malId,*/
                 responseType: "json",
                 onload: function(rsp) {
                     if (rsp.status !== 200) return e.append(" | rip")
-                    for (const [provider, links] of Object.entries(rsp.responseXML)) {
+                    for (let [provider, links] of Object.entries(rsp.responseXML)) {
                         links.forEach(obj => {
                             if (provider === "AniMixPlay") return // the streaming part of animix is dead
                             if (provider === "Crunchyroll") return
@@ -57,6 +61,22 @@ self.addEventListener("load", function() {
                             if (provider === "Hulu") return
                             if (provider === "Netflix") return
                             if (provider === "Hidive") return
+
+                            if (provider === "Tenshi") {
+                                // it's just the domain that changed, hashes are the same
+                                provider = "Marin"
+                                obj.url = obj.url.replace("tenshi", "marin")
+                            }
+                            if (provider === "Zoro") {
+                                provider = "Aniwatch"
+                                obj.url = obj.url.replace("zoro.to", "aniwatch.to")
+                            }
+                            if (provider === "9anime") {
+                                provider = "Aniwave"
+                                const temp = new URL(obj.url)
+                                temp.hostname = "aniwave.to"
+                                obj.url = temp.href
+                            }
 
                             const a = document.createElement("a")
                             a.innerText = provider
@@ -82,10 +102,11 @@ document.addEventListener("keydown", function(event) {
 // option to grab anime info, click on entry picture
 self.addEventListener("load", function() {
     for (const i of document.querySelectorAll(".wo_avatar_big")) {
-        const malId = i.parentElement.parentElement.getAttribute("data-id"),
-              infoDiv = document.createElement("div"),
-              synopsisDiv = document.createElement("div"),
-              br = () => document.createElement("br")
+        const malId = i.parentElement.parentElement.getAttribute("data-id")
+        const themes = document.createElement("div")
+        const infoDiv = document.createElement("div")
+        const synopsisDiv = document.createElement("div")
+        const br = () => document.createElement("br")
         i.onclick = function() {
             if (i._info === undefined) {
                 const xhr = GM_xmlhttpRequest({
@@ -159,15 +180,63 @@ self.addEventListener("load", function() {
                                 ? json.data.synopsis + "\n------------------\nBackground:\n" + json.data.background : json.data.synopsis
 
                         }
+                        // themes button, with api from themes.moe
+                        themes.innerText = "themes"
+                        themes.style.cssText = "display: table; margin: 20% auto; cursor: pointer;"
+                        themes.onclick = function() {
+                            if (themes.themes) {
+                                showThemes(themes.themes)
+                            } else {
+                                console.log('requesting')
+                                GM_xmlhttpRequest({
+                                    // url: `https://themes.moe/api/themes/857/OP/mirrors`,
+                                    url: "https://themes.moe/api/themes/" + malId,
+                                    responseType: "json",
+                                    onload: function(rsp) {
+                                        themes.themes = rsp.responseXML
+                                        showThemes(themes.themes)
+                                    }
+                                })
+                            }
+                            function showThemes(array) {
+                                if (!document.querySelector(".thaames")) {
+                                    const div = document.createElement("div")
+                                    div.className = "thaames"
+                                    div.style.cssText = "position: fixed; left: 0px; top: 0px; overflow: auto; background-color: rgba(0, 0, 0, 0.4); width: 100%; height: 100%;"
+                                    document.body.append(div)
+
+                                    self.addEventListener("click", function(e) {
+                                        if (e.target === div) div.style.display = "none"
+                                    })
+                                    self.addEventListener("keydown", function(e) {
+                                        if (e.key === "Escape") div.style.display = "none"
+                                    })
+
+                                    const text = document.createElement("div")
+                                    text.className = "thaames_text"
+                                    text.style.cssText = "margin: 15% auto; padding: 20px; border: 1px solid rgb(136, 136, 136); width: 80%; background-color: black;"
+                                    div.append(text)
+                                }
+                                document.querySelector(".thaames").style.display = "block"
+                                document.querySelector(".thaames").firstChild
+                                    .innerHTML = array[0]["themes"].map(e => `<a href=${e.mirror.mirrorURL} style="padding: 7px;">${e.themeType} - ${e.themeName}</a>`).join("\n")
+
+                            }
+                        }
 
                         i.parentElement.nextElementSibling.append(infoDiv)
                         i.parentElement.append(synopsisDiv)
+                        i.parentElement.append(themes)
                         infoDiv.style.display = ""
                     }
                 })
             }
             infoDiv.style.display === "" ? infoDiv.style.display = "none" : infoDiv.style.display = ""
             synopsisDiv.style.display === "table" ? synopsisDiv.style.display = "none" : synopsisDiv.style.display = "table"
+            themes.style.display === "table" ? themes.style.display = "none" : themes.style.display = "table"
         }
     }
 })
+
+
+
