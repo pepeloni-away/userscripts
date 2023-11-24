@@ -4,7 +4,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.0
+// @version     1.1
 // @description 2/26/2023, 5:22:33 PM
 // @grant       none
 // @match       https://www.youtube.com/*
@@ -106,7 +106,7 @@ class="style-scope yt-icon" style=""></path></g></svg></button>')
     })
 })();
 
-/* like https://greasyfork.org/en/scripts/29422-disable-youtube-channel-user-home-page-video-autoplay but with support for youtube's navigation*/
+/* like https://greasyfork.org/en/scripts/29422-disable-youtube-channel-user-home-page-video-autoplay but with support for youtube's navigation */
 (function noChannelPageAutoplay() {
     HTMLMediaElement.prototype.play = new Proxy(HTMLMediaElement.prototype.play, {
         apply(target, thisArg, args) {
@@ -122,7 +122,14 @@ class="style-scope yt-icon" style=""></path></g></svg></button>')
 
 /* the save button should never be pushed to the overflow menu by the new ocasional purpose buttons they keep adding */
 (function shitButtons() {
-    const mode = "flip", // "single" -> only show save button | "flip" -> flip buttons so that save is first instead of last
+    const mode = "single", // "single" -> only show save button | "flip" -> flip buttons so that save is first instead of last
+          // flip will sometimes not show buttons at all when navigating youtube, but will work if you press back and forward page buttons....flip
+          // ===
+          // i think it's because youtube will just remove buttons from the array without checking, so when you go from a video that
+          // originally had clip, thanks and save, to one that only has save, youtube will remove the last 2 buttons, but since the script
+          // removed them already, youtube will remove the last button, save.
+          // ====
+          // don't feel like dealing with that
           descriptor = Object.getOwnPropertyDescriptor(Object.prototype, "playerResponse") ?? {
               set(value) {
                   this._YRNAB_playerResponse = value
@@ -141,8 +148,16 @@ class="style-scope yt-icon" style=""></path></g></svg></button>')
                     let arr
                     // there are some other response objects with different structure we don't want to mess with, for example on search page
                     try { arr = response.contents.twoColumnWatchNextResults.results.results.contents[0].videoPrimaryInfoRenderer.videoActions.menuRenderer.flexibleItems } catch(e) { break rm}
+                    // console.log(arr)
                     if (mode === "single") arr.length > 1 && arr.splice(0, arr.length - 1)
-                    if (mode === "flip") !arr.flipped && (arr.flipped = true, arr.reverse())
+                    // if (mode === "flip") !arr.flipped && (arr.flipped = true, arr.reverse()) // fix flip
+                    // if (mode === "flip") arr.length > 1 && arr[0].menuFlexibleItemRenderer.topLevelButton.buttonRenderer.tooltip !== "Save" && arr.reverse()
+                    /*if (mode === "flip") arr = arr.sort((a, b) => {
+                        // console.log(a, b); return 1
+                        if (b.menuFlexibleItemRenderer.topLevelButton.buttonRenderer.tooltip === "Save") return 1
+                        return -1
+                    })
+                    console.log("after", arr.map(e => e.menuFlexibleItemRenderer.topLevelButton.buttonRenderer.tooltip))*/
                 }
                 return Reflect.apply(...arguments)
             }
