@@ -1,5 +1,7 @@
 ## [No Debugger Abuse](https://github.com/pepeloni-away/userscripts/raw/main/no-debugger-abuse.user.js)
-Stop websites from constantly calling the javascript debugger statement when browser dev tools are open.
+Stop websites from constantly calling the javascript debugger statement when browser dev tools are open.  
+**This should only be on when needed, it proxies the standard Function object and might break some functionality on some pages. Breaks at least:
+episode style buttons on kickassanime, creating wargaming.net support tickets**
 
 ## [Youtube Iframe Fullscreen Everywhere](https://github.com/pepeloni-away/userscripts/raw/main/youtube-iframe-fullscreen-everywhere.user.js)
 A lot of wiki websites have small youtube embeds without fullscreen option.
