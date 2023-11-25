@@ -215,14 +215,6 @@ function defuseSharedDetector1() {
                     attributes: true
                 })
             }
-
-            if (android) {
-                const mobileDubToggle = document.createElement("div")
-                mobileDubToggle.style.cssText = "flex-grow: 0.3;"
-                mobileDubToggle.className = "btn btn-sm btn-secondary"
-                mobileDubToggle.id = "mobileDubToggle"
-                document.querySelector('#prevnextmobile').insertBefore(mobileDubToggle, document.querySelector('.forward.next'))
-            }
             break
         }
     }
@@ -269,7 +261,13 @@ function defuseSharedDetector1() {
 
             let e
             if (android) {
-                e = document.getElementById("mobileDubToggle")
+                const mobileDubToggle = document.createElement("div")
+                mobileDubToggle.style.cssText = "flex-grow: 0.3;"
+                mobileDubToggle.className = "btn btn-sm btn-secondary"
+                mobileDubToggle.id = "mobileDubToggle"
+                document.querySelector('#prevnextmobile').insertBefore(mobileDubToggle, document.querySelector('.forward.next'))
+
+                e = mobileDubToggle
                 e.innerText = "sub only"
                 e.onclick = function() {
                     if (document.querySelector("div[data-type='dub']").style.display === "none") {
@@ -301,12 +299,9 @@ function defuseSharedDetector1() {
             // #w-servers is reset when selecting different episodes
             new MutationObserver(function reapply(m, obs) {
                 if (document.querySelector("div[data-type='sub']").contains(e)) return
-                document.querySelector("div[data-type='sub']").append(e)
+                android ? document.querySelector('#prevnextmobile').insertBefore(e, document.querySelector('.forward.next')) : document.querySelector("div[data-type='sub']").append(e)
                 e.click()
-            }).observe(document.querySelector("#w-servers"), {
-                childList: true,
-                subtree: true
-            })
+            }).observe(document.querySelector("#w-servers"), { childList: true, subtree: true })
             break
         }
     }
@@ -376,7 +371,8 @@ function defuseSharedDetector1() {
             this.lel = v
         },
         get() {
-            this.ignore = _ => true
+            this.ignore = _ => true // this is enough if you open devtools first and then go to the url
+            this.ondevtoolopen = _ => {/*console.log('hej')*/} // this runs once when you first open devtool even with ignore on.
             // console.log('get', this)
             return this.lel
         }
