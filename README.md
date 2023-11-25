@@ -1,3 +1,6 @@
+## [Fantastic Tweaks](https://github.com/pepeloni-away/userscripts/raw/main/fantastic-tweaks.user.js)
+Visual and functional tweaks for a few anime streaming sites
+
 ## [No Debugger Abuse](https://github.com/pepeloni-away/userscripts/raw/main/no-debugger-abuse.user.js)
 Stop websites from constantly calling the javascript debugger statement when browser dev tools are open.  
 **This should only be on when needed, it proxies the standard Function object and might break some functionality on some pages. Breaks at least:
