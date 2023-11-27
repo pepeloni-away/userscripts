@@ -4,7 +4,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.1
+// @version     1.2
 // @description 2/26/2023, 5:22:33 PM
 // @grant       none
 // @match       https://www.youtube.com/*
@@ -45,7 +45,7 @@
         apply(target, thisArg, args) {
             if (args[0] === "href")
                 if (args[1].replace) {
-                    args[1] = args[1].replace(/&list=\w+&index=[0-9]+/, '')
+                    args[1] = args[1].replace(/&list=[a-zA-Z0-9_-]+&index=[0-9]+/, '')
                     args[1] = args[1].replace(/&pp=\w+/, '')
                 }
             return Reflect.apply(...arguments)
