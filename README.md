@@ -1,3 +1,9 @@
+## [Fantastic Streamer](https://github.com/pepeloni-away/userscripts/raw/main/fantastic-streamer.user.js)
+This is a userscript that will try to detect video streams and open them inside android video players.
+By default it runs on some popular anime sites but it should work on most other sites by just adding them as additional matches in your userscript manager (the top page and the video iframes, if any).  
+  
+**write about players and headers here**
+
 ## [Fantastic Tweaks](https://github.com/pepeloni-away/userscripts/raw/main/fantastic-tweaks.user.js)
 Visual and functional tweaks for a few anime streaming sites
 
