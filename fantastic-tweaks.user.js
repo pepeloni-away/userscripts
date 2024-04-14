@@ -4,7 +4,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.0
+// @version     1.1
 // @description Tweaks for anime streaming sites
 // @match       https://animixplay.to/*
 // @match       https://disqus.com/embed/comments/*
@@ -20,6 +20,7 @@
 // @match       https://mcloud.bz/e/*
 // @match       https://filemoon.sx/e/*
 // @match       https://www.mp4upload.com/embed*
+// @match       https://mp4upload.com/embed*
 //
 // @match       https://aniwatch.to/watch/*
 // @match       https://megacloud.tv/*
@@ -93,7 +94,7 @@ function defuseSharedDetector1() {
     }
     `
 }();
-! function aniwatchTweaks() {
+! function aniwaveTweaks() {
     const official =
         location.hostname === "aniwave.to"
         || location.hostname === "aniwave.bz"
@@ -562,7 +563,12 @@ function defuseSharedDetector1() {
     })
 }();
 ! function mp4uploadTweaks() {
-    if (location.hostname !== "www.mp4upload.com") return
+    const domains = [
+        'www.mp4upload.com',
+        'mp4upload.com',
+    ]
+    // if (location.hostname !== "www.mp4upload.com") return
+    if (!domains.includes(location.hostname)) return
     // mp4upload does something strange with window focus, somehow focusing itself sometimes, when scrolling comments or when on a completely different tab.
 
     addStyle `
