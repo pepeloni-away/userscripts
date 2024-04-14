@@ -4,239 +4,501 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.0
+// @version     2.0
 // @description Adds some AniMixPlay features to Chiaki
 // @grant       GM_xmlhttpRequest
 // @match       https://chiaki.site/?/tools/watch_order/*
 // ==/UserScript==
 
-// middle click image in search results to open in new tab
-HTMLDivElement.prototype.setAttribute = new Proxy(HTMLDivElement.prototype.setAttribute, {
-    apply(target, thisArg, args) {
-        if (args[0] === "class" && args[1] === "ac_image") {
-            new MutationObserver(function(m, obs) {
-                const malId = thisArg.getAttribute("style").match(/(\d+).jpg/)[1]
-                const a = document.createElement("a")
-                a.href = "https://chiaki.site/?/tools/watch_order/id/" + malId
-                a.style.backgroundColor = "transparent"
-                a.className = "ac_image"
-                thisArg.append(a)
-                obs.disconnect()
-            }).observe(thisArg, { attributes: true, attributeFilter: [ "style" ] })
+function keyboardFocusSearch() {
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "/") {
+            event.preventDefault()
+            document.querySelector(".uk-input").focus()
         }
-        return Reflect.apply(...arguments)
+    })
+}
+keyboardFocusSearch()
+
+function allowSearchResultMiddleClick() {
+    function interceptSearchResult(proto, target, interceptor) {
+        const ogTarget = proto[target]
+        proto[target] = function a(child) {
+            const isSearchResultPanel = this.parentElement === document.body
+            return isSearchResultPanel ? ogTarget.call(this, interceptor(child)) : ogTarget.call(this, child)
+        }
     }
-})
+    interceptSearchResult(HTMLUListElement.prototype, 'appendChild', modifyResult)
 
-// add animix to the list of external sites
-self.addEventListener("load", function() {
-    for (const e of document.querySelectorAll(".uk-text-muted.uk-text-small")) {
-        const malId = e.parentElement.parentElement.getAttribute("data-id")
-        const a = document.createElement("a")
-        a.href = "https://animixplay.to/anime/" + malId
-        a.innerText = "animix"
-        e.append("| ", a)
-        // add a button to request streaming links from animix, the api still works
-        const btn = document.createElement("button")
-        btn.innerText = "grab links"
-        btn.style.cssText = "border: medium none; background: transparent; color: inherit; cursor: pointer; padding: 0px;"
-        btn.onclick = function() {
-            this.previousSibling.remove()
-            this.style.display = "none"
-            const xhr = GM_xmlhttpRequest({
-                url: `https://animixplay.to/assets/rec/${malId}.json`,
-                // they actually updated the api after the site shut down? --- nevermind, /search has newer links but doesn't work for every anime like the old one
-                /*url: "https://animixplay.to/api/search",
-                method: "POST",
-                data: "recgen=" + malId,*/
-                responseType: "json",
-                onload: function(rsp) {
-                    if (rsp.status !== 200) return e.append(" | rip")
-                    for (let [provider, links] of Object.entries(rsp.responseXML)) {
-                        links.forEach(obj => {
-                            if (provider === "AniMixPlay") return // the streaming part of animix is dead
-                            if (provider === "Crunchyroll") return
-                            if (provider === "Vrv") return
-                            if (provider === "Funimation") return
-                            if (provider === "Hulu") return
-                            if (provider === "Netflix") return
-                            if (provider === "Hidive") return
+    function modifyResult(li) {
+        const malId = li.firstChild.firstChild.style["background-image"].match(/(\d+).jpg/)[1]
+        const overlay = document.createElement("a")
 
-                            if (provider === "Tenshi") {
-                                // it's just the domain that changed, hashes are the same
-                                provider = "Marin"
-                                obj.url = obj.url.replace("tenshi", "marin")
-                            }
-                            if (provider === "Zoro") {
-                                provider = "Aniwatch"
-                                obj.url = obj.url.replace("zoro.to", "aniwatch.to")
-                            }
-                            if (provider === "9anime") {
-                                provider = "Aniwave"
-                                const temp = new URL(obj.url)
-                                temp.hostname = "aniwave.to"
-                                obj.url = temp.href
-                            }
+        overlay.href = "https://chiaki.site/?/tools/watch_order/id/" + malId
 
+        overlay.append(li.firstChild.lastChild)
+        li.firstChild.append(overlay)
+
+        return li
+    }
+}
+allowSearchResultMiddleClick()
+
+function addExternalLinks() {
+    self.addEventListener("load", pageLoaded)
+
+    function pageLoaded() {
+        const targets = document.body.firstElementChild.querySelectorAll(".uk-text-muted.uk-text-small")
+        targets.forEach(addButtons)
+        function addButtons(e) {
+            const malId = e.parentElement.parentElement.dataset.id
+
+            addAnimixButton(e, malId)
+            addGrabButton(e, malId)
+        }
+
+        function addGrabButton(e, malId) {
+            const btn = document.createElement("button")
+            btn.innerText = "grab links"
+            btn.style.cssText = "border: medium none; background: transparent; color: inherit; cursor: pointer; padding: 0px;"
+            btn.onclick = handleGrabButtonClick__animix(malId)
+            btn.onclick = handleGrabButtonClick__kuroinu(malId)
+
+            e.append(" | ", btn)
+
+            function handleGrabButtonClick__animix(malId) {
+                return function () {
+                    this.style.display = "none"
+
+                    const spinner = makeLoadingDots("display: inline; cursor: default;")
+                    this.insertAdjacentElement("afterend", spinner)
+
+                    GM_xmlhttpRequest({
+                        url: `https://animixplay.to/assets/rec/${malId}.json`,
+                        // responseType: "json",
+                        onload: handleXhr.bind(this, spinner),
+                    })
+
+                    function handleXhr(spinner, responseObject) {
+                        // console.log(responseObject)
+                        if (responseObject.status !== 200) {
+                            spinner.remove()
+
+                            if (responseObject.status === 404) {
+                                const gifRx = /(?<=")https:\/\/cdn.animixplay.to\/s\/404.gif(?=")/
+                                const gifMatch = responseObject.responseText.match(gifRx)
+                                const img = document.createElement("img")
+                                // img.style.height = ".875rem"
+                                img.style.height = "2rem"
+
+                                if (gifMatch) {
+                                    img.src = gifMatch[0]
+                                    return this.parentElement.append(" ", img)
+                                }
+                            }
+                            return this.parentElement.append(" rip")
+                        }
+
+                        const r = JSON.parse(responseObject.responseText)
+                        const no = ["AniMixPlay", "Crunchyroll", "Vrv", "Funimation", "Hulu", "Netflix", "Hidive", "Marin"]
+
+                        // [ '9anime', [ { url: 'https://....', title: 'anime title' } ] ]
+                        const anchors = Object.entries(r)
+                            .filter(o => !no.includes(o[0]))
+                            .map(o => o[1].map(makeAnchor.bind(null, o[0])))
+                            .flat()
+
+                        function makeAnchor(name, urlObject) {
                             const a = document.createElement("a")
-                            a.innerText = provider
-                            a.href = obj.url
-                            e.append(" | ", a)
-                        })
+                            a.innerText = name
+                            a.href = urlObject.url
+                            return a
+                        }
+
+                        spinner.remove()
+                        const separated = anchors.flatMap(e => [e, " | "]).slice(0, -1)
+                        this.parentElement.append(...(separated.length > 0 ? separated : ["---"]))
                     }
                 }
-            })
-        }
-        e.append(" | ", btn)
-    }
-})
-
-// focus search field with "/" key
-document.addEventListener("keydown", function(event) {
-    if (event.key === "/") {
-        event.preventDefault()
-        document.querySelector(".uk-input").focus()
-    }
-})
-
-// option to grab anime info, click on entry picture
-self.addEventListener("load", function() {
-    for (const i of document.querySelectorAll(".wo_avatar_big")) {
-        const malId = i.parentElement.parentElement.getAttribute("data-id")
-        const themes = document.createElement("div")
-        const infoDiv = document.createElement("div")
-        const synopsisDiv = document.createElement("div")
-        const br = () => document.createElement("br")
-        i.onclick = function() {
-            if (i._info === undefined) {
-                const xhr = GM_xmlhttpRequest({
-                    url: `https://api.jikan.moe/v4/anime/${malId}/full`,
-                    responseType: "json",
-                    onload: function(rsp) {
-                        if (rsp.status !== 200) return console.log("not good", rsp)
-                        i._info = true
-                        const json = JSON.parse(rsp.responseText)
-
-                        // add items to infodiv here
-                        infoDiv.append("Rating: ", json.data.rating, br())
-                        {
-                            infoDiv.append("Generes: ")
-                            const generes = [...json.data.genres, ...json.data.themes, ...json.data.demographics]
-                            let last = 0
-                            for (const i of generes) {
-                                const a = document.createElement("a")
-                                last++
-                                a.href = i.url
-                                a.innerText = i.name
-                                infoDiv.append(a)
-                                if (last < generes.length) infoDiv.append(", ")
-                            }
-                        }
-                        infoDiv.append(br())
-                        {
-                            const a = document.createElement("a")
-                            a.innerText = json.data.source
-                            a.href = json.data.relations.filter(e => e.relation === "Adaptation").map(e => e.entry[0].url)[0]
-                            a.href === "https://chiaki.site/undefined" ? infoDiv.append("Source: ", json.data.source) : infoDiv.append("Source: ", a)
-                        }
-                        infoDiv.append(br())
-                        {
-                            infoDiv.append("Studios: ")
-                            const studios = json.data.studios
-                            let last = 0
-                            for (const i of studios) {
-                                const a = document.createElement("a")
-                                last++
-                                a.href = i.url
-                                a.innerText = i.name
-                                infoDiv.append(a)
-                                if (last < studios.length) infoDiv.append(", ")
-                            }
-                        }
-
-                        // synopsis button below anime image, cuz there's empty space there
-                        synopsisDiv.append("synopsis")
-                        synopsisDiv.style.cssText = "display: table; margin: 20% auto; cursor: pointer;"
-                        synopsisDiv.onclick = function() {
-                            if (!document.querySelector(".synopsis_modal")) {
-                                const div = document.createElement("div")
-                                div.className = "synopsis_modal"
-                                div.style.cssText = "position: fixed; left: 0px; top: 0px; overflow: auto; background-color: rgba(0, 0, 0, 0.4); width: 100%; height: 100%;"
-                                document.body.append(div)
-
-                                self.addEventListener("click", function(e) {
-                                    if (e.target === div) div.style.display = "none"
-                                })
-                                self.addEventListener("keydown", function(e) {
-                                    if (e.key === "Escape") div.style.display = "none"
-                                })
-
-                                const text = document.createElement("div")
-                                text.style.cssText = "margin: 15% auto; padding: 20px; border: 1px solid rgb(136, 136, 136); width: 80%; background-color: black;"
-                                div.append(text)
-                            }
-                            document.querySelector(".synopsis_modal").style.display = "block"
-                            document.querySelector(".synopsis_modal").firstChild.innerText = json.data.background
-                                ? json.data.synopsis + "\n------------------\nBackground:\n" + json.data.background : json.data.synopsis
-
-                        }
-                        // themes button, with api from themes.moe
-                        themes.innerText = "themes"
-                        themes.style.cssText = "display: table; margin: 20% auto; cursor: pointer;"
-                        themes.onclick = function() {
-                            if (themes.themes) {
-                                showThemes(themes.themes)
-                            } else {
-                                console.log('requesting')
-                                GM_xmlhttpRequest({
-                                    // url: `https://themes.moe/api/themes/857/OP/mirrors`,
-                                    url: "https://themes.moe/api/themes/" + malId,
-                                    responseType: "json",
-                                    onload: function(rsp) {
-                                        themes.themes = rsp.responseXML
-                                        showThemes(themes.themes)
-                                    }
-                                })
-                            }
-                            function showThemes(array) {
-                                if (!document.querySelector(".thaames")) {
-                                    const div = document.createElement("div")
-                                    div.className = "thaames"
-                                    div.style.cssText = "position: fixed; left: 0px; top: 0px; overflow: auto; background-color: rgba(0, 0, 0, 0.4); width: 100%; height: 100%;"
-                                    document.body.append(div)
-
-                                    self.addEventListener("click", function(e) {
-                                        if (e.target === div) div.style.display = "none"
-                                    })
-                                    self.addEventListener("keydown", function(e) {
-                                        if (e.key === "Escape") div.style.display = "none"
-                                    })
-
-                                    const text = document.createElement("div")
-                                    text.className = "thaames_text"
-                                    text.style.cssText = "margin: 15% auto; padding: 20px; border: 1px solid rgb(136, 136, 136); width: 80%; background-color: black;"
-                                    div.append(text)
-                                }
-                                document.querySelector(".thaames").style.display = "block"
-                                document.querySelector(".thaames").firstChild
-                                    .innerHTML = array[0]["themes"].map(e => `<a href=${e.mirror.mirrorURL} style="padding: 7px;">${e.themeType} - ${e.themeName}</a>`).join("\n")
-
-                            }
-                        }
-
-                        i.parentElement.nextElementSibling.append(infoDiv)
-                        i.parentElement.append(synopsisDiv)
-                        i.parentElement.append(themes)
-                        infoDiv.style.display = ""
-                    }
-                })
             }
-            infoDiv.style.display === "" ? infoDiv.style.display = "none" : infoDiv.style.display = ""
-            synopsisDiv.style.display === "table" ? synopsisDiv.style.display = "none" : synopsisDiv.style.display = "table"
-            themes.style.display === "table" ? themes.style.display = "none" : themes.style.display = "table"
+
+            function handleGrabButtonClick__kuroinu(malId) {
+                return function () {
+                    this.style.display = "none"
+
+                    const spinner = makeLoadingDots("display: inline; cursor: default;")
+                    this.insertAdjacentElement("afterend", spinner)
+
+                    GM_xmlhttpRequest({
+                        url: 'https://kuroiru.co/backend/api',
+                        method: 'POST',
+                        data: `prompt=${malId}`,
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                        },
+                        responseType: "json",
+                        onload: handleXhr.bind(this, spinner),
+                    })
+
+                    function handleXhr(spinner, responseObject) {
+                        if (responseObject.status !== 200) {
+                            spinner.remove()
+                            return this.parentElement.append(" rip")
+                        }
+
+                        // const links = responseObject.response.streams // they changed the api a bit
+                        const links = Object.values(responseObject.response.streams).flat()
+                        const no = ["AniMixPlay", "Crunchyroll", "Vrv", "Funimation", "Hulu", "Netflix", "Hidive"]
+
+                        const anchors = links
+                            .filter(a => !no.includes(a.site))
+                            .map(fixEpisodePlacehoder)
+                            .flatMap(makeAnchor)
+
+                        function fixEpisodePlacehoder(linkObject) {
+                            linkObject.links = linkObject.links.map(o => {
+                                o.url = o.url.replace('{ep}', '1')
+                                return o
+                            })
+                            return linkObject
+                        }
+
+                        function makeAnchor(linkObject) {
+                            return linkObject.links.flatMap(o => {
+                                const a = document.createElement('a')
+                                a.innerText = linkObject.site
+                                a.href = o.url
+                                return a
+                            })
+                        }
+
+                        spinner.remove()
+                        const separated = anchors.flatMap(e => [e, " | "]).slice(0, -1)
+                        this.parentElement.append(...(separated.length > 0 ? separated : ["---"]))
+                    }
+                }
+            }
+        }
+        function addAnimixButton(e, malId) {
+            const lastPic = [...e.querySelectorAll("span.uk-icon.uk-icon-image")].pop().parentElement
+            lastPic.parentElement.insertBefore(makeAnimixButton(malId), lastPic.nextSibling)
+            lastPic.parentElement.insertBefore(document.createTextNode(" "), lastPic.nextElementSibling)
+
+            function makeAnimixButton(id) {
+                const a = document.createElement("a")
+                a.href = "https://animixplay.to/anime/" + id
+
+                const span = document.createElement("span")
+                span.className = "uk-icon uk-icon-image"
+                span.style.backgroundImage = 'url("https://animixplay.to/icon.png")'
+
+                a.append(span)
+                return a
+            }
         }
     }
-})
+}
+addExternalLinks()
+
+function addAnimeInfo() {
+    self.addEventListener("load", pageLoaded)
+
+    function pageLoaded() {
+        const targets = document.querySelectorAll(".wo_avatar_big");
+        targets.forEach((image) => (image.onclick = handleImageClick()));
+
+        function handleImageClick() {
+            let ranOnce = false
+            let underPicDiv, detailsDiv
+
+            return function (clickEvent) {
+                if (ranOnce) {
+                    return toggleVisibility()
+                }
+
+                const makeCenteredSpinner = _ => makeLoadingDots("text-align: center;")
+                const synopsisSpinner = makeCenteredSpinner()
+                const themesSpinner = makeCenteredSpinner()
+                const detailsSpinner = makeCenteredSpinner()
+
+                underPicDiv = document.createElement("div")
+                const synopsisDiv = makeUnderPicButton()
+                const themesDiv = makeUnderPicButton()
+                detailsDiv = document.createElement("div")
+
+                underPicDiv.append(synopsisDiv, themesDiv)
+                clickEvent.target.parentElement.append(underPicDiv)
+                clickEvent.target.parentElement.nextElementSibling.append(detailsDiv)
+                synopsisDiv.append(synopsisSpinner)
+                themesDiv.append(themesSpinner)
+                detailsDiv.append(detailsSpinner)
+
+                ranOnce = true
+
+                const malId = clickEvent.target.parentElement.parentElement.dataset.id
+                fillDetailsAndSynopsis(detailsDiv, synopsisDiv, detailsSpinner, synopsisSpinner, malId)
+                fillThemes(themesDiv, themesSpinner, malId)
+
+                function toggleVisibility() {
+                    const a = underPicDiv.style.display === "" ? "none" : ""
+                    underPicDiv.style.display = a
+                    detailsDiv.style.display = a
+                }
+
+                function fillDetailsAndSynopsis(d, s, dSpinner, sSpinner, malId) {
+                    GM_xmlhttpRequest({
+                        url: `https://api.jikan.moe/v4/anime/${malId}/full`,
+                        responseType: "json",
+                        onload: handleXhr,
+                    })
+
+                    function handleXhr(responseObject) {
+                        const r = responseObject.response.data
+
+                        fillDetails(d, dSpinner, r)
+                        fillSynopsis(s, sSpinner, r)
+
+                        function fillDetails(e, spinner, data) {
+                            const rating = ["Rating: ", data.rating, document.createElement("br")]
+                            const generes = getGeneres(data)
+                            const source = getSource(data)
+                            const studio = getStudio(data)
+
+                            spinner.remove()
+                            e.append(...rating, ...generes, ...source, ...studio)
+
+                            function getGeneres(dataObj) {
+                                const g = [...dataObj.genres, ...dataObj.themes, ...dataObj.demographics]
+                                return ["Generes: ", ...g.map(toAnchor).flatMap(addCommas), document.createElement("br")]
+                            }
+                            function getSource(dataObj) {
+                                const adaptation = dataObj.relations.filter(e => e.relation === "Adaptation")
+                                    .reduce((_, e) => e.entry[0].url, "")
+
+                                const a = document.createElement("a")
+                                a.innerText = dataObj.source
+                                if (adaptation) {
+                                    a.href = adaptation
+                                }
+                                return ["Source: ", a, document.createElement("br")]
+                            }
+                            function getStudio(dataObj) {
+                                const s = dataObj.studios.map(toAnchor)
+                                return ["Studios: ", ...s.flatMap(addCommas)]
+                            }
+
+
+                            function toAnchor(e) {
+                                const a = document.createElement("a")
+                                a.innerText = e.name
+                                a.href = e.url
+                                return a
+                            }
+                            function addCommas(item, index, array) {
+                                return index < array.length - 1 ? [item, ', '] : [item]
+                            }
+                        }
+
+                        function fillSynopsis(e, spinner, data) {
+                            spinner.remove()
+                            const modal = fillModal(makeModal())
+
+                            e.innerText = "synopsis"
+                            e.append(modal)
+                            e.onclick = _ => modal.style.display = "flex"
+
+                            function fillModal(modal) {
+                                const content = data?.background ? data?.synopsis + "\n------------------\nBackground:\n" + data?.background : data?.synopsis
+                                if (content) {
+                                    modal.firstChild.firstChild.innerText = content
+                                } else {
+                                    const n = makeUnderPicButton()
+                                    const s = document.createElement("s")
+                                    s.innerText = "synopsis"
+                                    n.append(s)
+                                    e.outerHTML = n.outerHTML
+                                }
+                                return modal
+                            }
+                        }
+                    }
+                }
+
+                function fillThemes(e, spinner, malId) {
+                    GM_xmlhttpRequest({
+                        // url: `https://animethemes.moe/_next/data/${buildId}/anime/${slug}.json`,
+                        url: `https://api.animethemes.moe/anime?filter[has]=resources&filter[site]=MyAnimeList&filter[external_id]=${malId}&include=animethemes.animethemeentries.videos`,
+                        responseType: "json",
+                        onload: handleXhr,
+                    })
+
+                    function handleXhr(responseObject) {
+                        spinner.remove()
+                        const modal = fillModal(makeModal())
+
+                        e.innerText = "themes"
+                        e.append(modal)
+                        e.onclick = _ => modal.style.display = "flex"
+                        function fillModal(modal) {
+                            const animeObject = responseObject.response.anime[0]
+                            if (animeObject) {
+                                modal.firstChild.firstChild.append(...makeThemeCards(animeObject))
+                            } else {
+                                const n = makeUnderPicButton()
+                                const s = document.createElement("s")
+                                s.innerText = "themes"
+                                n.append(s)
+                                e.outerHTML = n.outerHTML
+                            }
+                            return modal
+                        }
+                        function makeThemeCards(animeObject) {
+                            const anchors = animeObject.animethemes.map(e => {
+                                const a = document.createElement("a")
+                                a.style.cssText = "text-decoration: none; margin-bottom: 10px; padding: 10px; border: 1px solid rgb(255, 255, 255); border-radius: 5px; display: inline-block;"
+                                a.innerText = `${e.slug} - ${e.animethemeentries[0].videos[0].filename}`
+                                a.href = e.animethemeentries[0].videos[0].link
+
+                                a.onclick = e => {
+                                    e.preventDefault()
+                                    openVideo(e.target)
+                                }
+
+                                function openVideo(anchor) {
+                                    const modal = makeModal()
+                                    const video = document.createElement("video")
+                                    video.controls = true
+                                    video.style.maxHeight = "35rem"
+
+                                    anchor.parentElement.append(modal)
+                                    modal.firstChild.firstChild.append(video)
+                                    modal.style.display = "flex"
+
+                                    video.src = anchor.href
+
+                                    modal.style.zIndex = 2
+                                    self.addEventListener("click", e => e.target === modal && (modal.remove()))
+                                }
+
+                                return a
+                            })
+                            return anchors
+                        }
+                    }
+
+                }
+
+                function makeUnderPicButton(thing) {
+                    const b = document.createElement("div")
+                    if (thing) {
+                        b.append(thing)
+                    }
+                    b.style.cssText = "display: table; margin: 20% auto; cursor: pointer;"
+                    return b
+                }
+
+                function makeModal() {
+                    const div1 = document.createElement("div")
+                    const div2 = document.createElement("div")
+                    const div3 = document.createElement("div")
+
+                    div1.style.cssText = "display: none; position: fixed; top: 0px; left: 0px; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5);"
+                        + " z-index: 1; align-items: center; justify-content: center;"
+                    // div2.style.cssText = "position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: rgb(255, 255, 255);"
+                    div2.style.cssText = "background-color: rgb(255, 255, 255); max-width: 85%; text-align: center;"
+                        + " padding: 20px; max-height: 80%; overflow-y: auto; min-height: 15%; min-width: 15%; background-color: #333; color: #fff;"
+
+                    self.addEventListener("click", e => e.target === div1 && (div1.style.display = "none"))
+
+                    div1.append(div2)
+                    div2.append(div3)
+
+                    return div1
+                }
+            }
+        }
+    }
+
+}
+addAnimeInfo()
 
 
 
+
+function makeLoadingDots(cssText = "") {
+    if (!makeLoadingDots.ranOnce) {
+        addSpinnerCss()
+    }
+
+    // thanks to https://codepen.io/AnoNewb/pen/JwypRN
+    const spinnerDiv = document.createElement('div')
+    spinnerDiv.className = 'spinner'
+    spinnerDiv.style.cssText = cssText
+
+    const bounce1 = document.createElement('div')
+    bounce1.className = 'bounce1'
+
+    const bounce2 = document.createElement('div')
+    bounce2.className = 'bounce2'
+
+    const bounce3 = document.createElement('div')
+    bounce3.className = 'bounce3'
+
+    spinnerDiv.appendChild(bounce1)
+    spinnerDiv.appendChild(bounce2)
+    spinnerDiv.appendChild(bounce3)
+
+    return spinnerDiv
+}
+
+function addSpinnerCss() {
+    makeLoadingDots.ranOnce = true
+    const css = `
+      /*Huge thanks to @tobiasahlin at http://tobiasahlin.com/spinkit/ */
+  .spinner {
+   /* margin: 100px auto 0;
+    width: 70px;
+    text-align: center; */
+  }
+  
+  .spinner > div {
+    width: 18px;
+    height: 18px;
+    background-color: #333;
+  
+    border-radius: 100%;
+    display: inline-block;
+    -webkit-animation: sk-bouncedelay 1.4s infinite ease-in-out both;
+    animation: sk-bouncedelay 1.4s infinite ease-in-out both;
+  }
+  
+  .spinner .bounce1 {
+    -webkit-animation-delay: -0.32s;
+    animation-delay: -0.32s;
+  }
+  
+  .spinner .bounce2 {
+    -webkit-animation-delay: -0.16s;
+    animation-delay: -0.16s;
+  }
+  
+  @-webkit-keyframes sk-bouncedelay {
+    0%, 80%, 100% { -webkit-transform: scale(0) }
+    40% { -webkit-transform: scale(1.0) }
+  }
+  
+  @keyframes sk-bouncedelay {
+    0%, 80%, 100% {
+      -webkit-transform: scale(0);
+      transform: scale(0);
+    } 40% {
+      -webkit-transform: scale(1.0);
+      transform: scale(1.0);
+    }
+  }
+    `
+    const styleElement = document.createElement('style')
+    styleElement.type = 'text/css'
+    styleElement.appendChild(document.createTextNode(css))
+    document.head.appendChild(styleElement)
+}
