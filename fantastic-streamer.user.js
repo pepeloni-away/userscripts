@@ -1,4 +1,3 @@
-
 // ==UserScript==
 // @name        Fantastic Streamer
 // @namespace   https://github.com/pepeloni-away
@@ -6,7 +5,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.1
+// @version     1.2
 // @description Open videos from webpages in android video players
 // @grant       GM_log
 // @grant       GM_getValue
@@ -25,10 +24,13 @@
 // @match       https://vidstream.*/embed/*
 // @match       https://vidplay.*/e/*
 // @match       https://vidplay.*/embed/*
+// @match       https://a9bfed0818.nl/e/*
 // @match       https://mcloud.to/e/*
 // @match       https://mcloud.bz/e/*
 // @match       https://filemoon.sx/e/*
+// @match       https://kerapoxy.cc/e/*
 // @match       https://www.mp4upload.com/embed*
+// @match       https://mp4upload.com/embed*
 //
 // @match       https://zoro.to/watch/*
 // @match       https://rapid-cloud.co/embed*
@@ -36,6 +38,7 @@
 //
 // @match       https://animepahe.*/play/*
 // @match       https://kwik.cx/e/*
+// @match       https://kwik.si/e/*
 //
 // @match       https://yugenanime.tv/watch/*
 // @match       https://yugenanime.tv/e/*
@@ -48,7 +51,7 @@
 // @match       https://plyr.link/p/player.html#*
 // ==/UserScript==
 
-const savePrefs = false// Saves changes you make in config and uses them after updates set config back to default.
+const savePrefs = false // Saves changes you make in config and uses them after updates set config back to default.
 const noPrefs = false // Skips save & check preferences - runs with the settings you see in config.
 const verbose = false
 const config = {
@@ -791,7 +794,7 @@ function startIntent(url) {
             intent += "S.--referrer=https://kwik.cx/;"
 
         }
-        if ("www.mp4upload.com" === location.hostname) {
+        if ("www.mp4upload.com" === location.hostname || "mp4upload.com" === location.hostname) {
             intent += "S.--referrer=mp4upload.com;"
             intent += "S.--tls-verify=no;"
         }
