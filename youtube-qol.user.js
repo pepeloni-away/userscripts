@@ -18,6 +18,22 @@
     }
     code();
     window.addEventListener("yt-navigate-finish", code, true);
+
+    // turn shorts hrefs into normal videos. yt still opens them as shorts unless you open them in new tabs
+    HTMLAnchorElement.prototype.setAttribute = new Proxy(
+        HTMLAnchorElement.prototype.setAttribute,
+        {
+            apply(target, thisArg, args) {
+                if (args[0] === "href" && args[1].startsWith('/shorts')) {
+                    const id = args[1].split('/')[2]
+                    args[1] = '/watch?v=' + id
+                    // console.log('unshorted', thisArg)
+                    // could also use this to hide every short
+                }
+                return Reflect.apply(...arguments);
+            },
+        }
+    );
 })();
 
 (function removeTimeParmOnPlay() {
