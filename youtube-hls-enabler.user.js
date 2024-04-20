@@ -4,7 +4,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.1
+// @version     1.2
 // @description Play the hls manifest from the ios player response. Based on https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass
 // @require     https://cdn.jsdelivr.net/npm/hls.js@1
 // @match       https://www.youtube.com/*
@@ -939,6 +939,13 @@ function hookHlsjs() {
 
     hls.on(Hls.Events.ERROR, (event, data) => {
         console.log(event, data)
+        if (data.fatal) {
+            console.log('fatal error, disabling. A page reload might fix this')
+            Toast.show('fatal playback error')
+            if (sharedPlayerElements.hlsToggle.ariaChecked === 'true') {
+                sharedPlayerElements.hlsToggle.click()
+            }
+        }
         // should self disable if we can't play because cors issues or anything else really
     })
 
