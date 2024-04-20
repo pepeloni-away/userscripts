@@ -197,13 +197,20 @@
             apply(target, thisArg, args) {
                 const { response } = thisArg;
                 rm: if (response !== null && typeof response === "object") {
-                    let arr;
+                    // console.log(response)
+                    let arr
                     // there are some other response objects with different structure we don't want to mess with, for example on search page
                     try {
                         arr =
                             response.contents.twoColumnWatchNextResults.results.results
                                 .contents[0].videoPrimaryInfoRenderer.videoActions.menuRenderer
                                 .flexibleItems;
+
+                        // remove share
+                        const s = response.contents.twoColumnWatchNextResults.results.results
+                        .contents[0].videoPrimaryInfoRenderer.videoActions.menuRenderer
+                        .topLevelButtons
+                        s.length === 2 && s.pop()
                     } catch (e) {
                         break rm;
                     }
