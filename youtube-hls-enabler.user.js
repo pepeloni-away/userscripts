@@ -28,11 +28,15 @@ const onByDefault = false
 const notify616 = false
 // switch to the hls manifest when it contains 616
 const onBy616 = true
+const disableLogging = false
 
 // what is 616? what do the changing numbers on the toggle button mean?
 // they are youtube specific format ids, ctrl-f them on https://gist.github.com/MartinEesmaa/2f4b261cb90a47e9c41ba115a011a4aa
 
 /* end user options */
+const console = {
+    log: disableLogging ? function () {} : unsafeWindow.console.log
+}
 
 const VALID_PLAYABILITY_STATUSES = ['OK', 'LIVE_STREAM_OFFLINE'];
 const GOOGLE_AUTH_HEADER_NAMES = ['Authorization', 'X-Goog-AuthUser', 'X-Origin'];
