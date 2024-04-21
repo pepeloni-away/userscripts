@@ -4,16 +4,12 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.2
+// @version     1.3
 // @description Play the hls manifest from the ios player response. Based on https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass
+// @grant       GM_xmlhttpRequest
 // @require     https://cdn.jsdelivr.net/npm/hls.js@1
 // @match       https://www.youtube.com/*
 // ==/UserScript==
-// @grant       GM_xmlhttpRequest
-// REMINDER: using grant sanboxes window object, breaks getYtcfgValue and more. player request key will be undefined. Change everything to unsafeWindow?
-// player response with undefined key still works but the segments return 302 redirects that lose the Origin header and fail cors
-
-
 
 /* user options */
 
@@ -370,8 +366,11 @@ function waitForElement(elementSelector, timeout) {
 
     return deferred;
 }
-const nativeJSONParse = window.JSON.parse;
-const nativeXMLHttpRequestOpen = window.XMLHttpRequest.prototype.open;
+// const nativeJSONParse = window.JSON.parse;
+// const nativeXMLHttpRequestOpen = window.XMLHttpRequest.prototype.open;
+const nativeJSONParse = unsafeWindow.JSON.parse;
+const nativeXMLHttpRequestOpen = unsafeWindow.XMLHttpRequest.prototype.open;
+
 const isDesktop = window.location.host !== 'm.youtube.com';
 const isMusic = window.location.host === 'music.youtube.com';
 const isEmbed = window.location.pathname.indexOf('/embed/') === 0;
@@ -399,7 +398,7 @@ function pageLoaded() {
 
     const deferred = new Deferred();
 
-    window.addEventListener('load', deferred.resolve, { once: true });
+    unsafeWindow.addEventListener('load', deferred.resolve, { once: true });
 
     return deferred;
 }
@@ -454,7 +453,7 @@ function isPremium1080pAvailable(parsedData) {
 
 function getYtcfgValue(name) {
     var _window$ytcfg;
-    return (_window$ytcfg = window.ytcfg) === null || _window$ytcfg === void 0 ? void 0 : _window$ytcfg.get(name);
+    return (_window$ytcfg = unsafeWindow.ytcfg) === null || _window$ytcfg === void 0 ? void 0 : _window$ytcfg.get(name);
 }
 
 function unlockResponse$1(playerResponse) {
@@ -635,15 +634,15 @@ function attach$3(onInitialData) {
     // The global `ytInitialData` variable can be modified on the fly.
     // It contains search results, sidebar data and meta information
     // Not really important but fixes https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass/issues/127
-    window.addEventListener('DOMContentLoaded', () => {
-        if (isObject(window.ytInitialData)) {
-            onInitialData(window.ytInitialData);
+    unsafeWindow.addEventListener('DOMContentLoaded', () => {
+        if (isObject(unsafeWindow.ytInitialData)) {
+            onInitialData(unsafeWindow.ytInitialData);
         }
     });
 }
 
 function attach$2(onJsonDataReceived) {
-    window.JSON.parse = function() {
+    unsafeWindow.JSON.parse = function() {
         const data = nativeJSONParse.apply(this, arguments);
         return isObject(data) ? onJsonDataReceived(data) : data;
     };
@@ -725,10 +724,45 @@ class fLoader extends Hls.DefaultConfig.loader {
 
                 const onError = callbacks.onError
                 callbacks.onError = function(error, context, xhr) {
-                    console.log(...arguments)
-                    onError(error, context, xhr)
-                    // it doesn' retry on code 0 cors error, maybe change it here?
+                    // it doesn' retry on code 0 cors error, change it here for shouldRetry to be called next
                     // https://github.com/video-dev/hls.js/blob/773fe886ed45cc83a015045c314763953b9a49d9/src/utils/error-helper.ts#L77
+                    // error.code = 302
+                    // error.text = 'pep'
+                    // error.test = 'heh' // so you can add values here and they get passes to shouldRetry
+                    console.log('err', ...arguments)
+                    // onError(error, context, xhr)
+                    
+                    if (error.code === 0 && new URL(context.url).hostname.endsWith('.googlevideo.com')) {
+                        GM_xmlhttpRequest({
+                            url: context.url,
+                            onload: function(r) {
+                                // console.log(r, r.finalUrl, context.url)
+                                if (r.status === 200 && r.finalUrl !== context.url) {
+                                    console.log(
+                                        'recoverable cors error',
+                                        // r,
+                                    )
+                                    error.code = 302
+                                    error.recoverable = true
+                                    // error.redirectUrl = r.finalUrl
+                                    // context.url = 'patema' // changes but is not passed to shouldRetry
+                                    // context.frag.relurl = 'relurl' // neither is this
+                                    context.frag._url = '_url' // or this EDIT: this one is used when shouldRetry returns true, even if it is not pased to shouldRetry
+                                    context.frag._url = r.finalUrl
+                                    onError(error, context, xhr)
+                                }
+                            },
+                            onerror: function(r) {
+                                console.log(
+                                    'failed to recover cors error',
+                                    // r,
+                                )
+                                onError(error, context, xhr)
+                            }
+                        })
+                    } else {
+                        onError(error, context, xhr)
+                    }
                 }
             }
             load(context, config, callbacks);
@@ -751,55 +785,57 @@ const hls = new Hls({
 
     // could also try to change Referrer Policy to something more lax https://help.tawk.to/article/how-to-change-the-referrer-policy-setting-on-your-website
 
-    debug: false,
-    // fragLoadPolicy: {
-    //     errorRetry: {
-    //         shouldRetry: function(...args) {
-    //             console.log('aaar', ...args)
-    //             return false
-    //         } 
-    //     }
-    // },
-    // fragLoadPolicy: {
-        // default: {
-        //   maxTimeToFirstByteMs: 9000,
-        //   maxLoadTimeMs: 100000,
-        //   timeoutRetry: {
-        //     maxNumRetry: 2,
-        //     retryDelayMs: 0,
-        //     maxRetryDelayMs: 0,
-        //     // shouldRetry: function(...args) {
-        //     //     console.log('aaar', ...args)
-        //     //     return false
-        //     // }
-        //   },
-        //   errorRetry: {
-        //     maxNumRetry: 5,
-        //     retryDelayMs: 3000,
-        //     maxRetryDelayMs: 15000,
-        //     backoff: 'linear',
-        //     // shouldRetry: function(...args) {
-        //     //     console.log('aaar', ...args)
-        //     //     return false
-        //     // }
-        //   },
-        // },
-    //   },
 
-    xhrSetup: function (xhr, url) {
-        // console.log(xhr, url)
-    },
+
+
+    // welp, i sure am glad i didn't have to learn how to build a hls.js loader that use GM_xmlhttpRequest
+    // if cors situation gets worse in the future it should be possible to manupulate this file
+    // https://github.com/video-dev/hls.js/blob/773fe886ed45cc83a015045c314763953b9a49d9/src/utils/xhr-loader.ts#L153
+    // could trap xhrproto.onreadystatechange setter, modify the xhr with data from GM_xmlhttpRequest and call it manually
+    // or try to assign it directly to GM_xmlhttpRequest? it looks like it only uses props that both gm and normal xhr have
+
+    debug: false,
+    fragLoadPolicy: {
+        default: {
+          maxTimeToFirstByteMs: 9000,
+          maxLoadTimeMs: 100000,
+          timeoutRetry: {
+            maxNumRetry: 2,
+            retryDelayMs: 0,
+            maxRetryDelayMs: 0,
+          },
+          errorRetry: {
+            maxNumRetry: 5,
+            // retryDelayMs: 3000,
+            retryDelayMs: 1000,
+            maxRetryDelayMs: 15000,
+            backoff: 'linear',
+            shouldRetry: function(...args) { // retryConfig, retryCount, isTimeout, loaderResponse, originalShouldRetryResponse
+                // args[3].url = 'args3url'
+                console.log(
+                    'shouldRetry',
+                    ...args,
+                    // 'args3:',
+                    // args[3]
+                )
+                // return args[3].recoverable && args[1] < 7 ? true : false 
+                // return args[3].recoverable ? true : false
+                return args[3].recoverable ? true : args[4]
+            }
+          },
+        },
+      },
     // pLoader: pLoader,
-    // fLoader: fLoader,
+    fLoader: fLoader,
 })
 
 const sharedPlayerElements = {}
 // console.log('sharedPlayerElements:', sharedPlayerElements , 'hls:', hls)
 // unsafeWindow.Hls = Hls
-// unsafeWindow.hls = hls
-// unsafeWindow.sharedPlayerElements = sharedPlayerElements
-self.hls = hls
-self.sharedPlayerElements = sharedPlayerElements
+unsafeWindow.hls = hls
+unsafeWindow.sharedPlayerElements = sharedPlayerElements
+// self.hls = hls
+// self.sharedPlayerElements = sharedPlayerElements
 function setupPlayer() {
     if (sharedPlayerElements.hlsToggle) return
     const div = document.createElement('div')
@@ -838,15 +874,6 @@ function setupPlayer() {
             unhookHlsjs()
         }
     })
-
-    // waitForElement('div:not(.ytp-contextmenu) > div.ytp-panel > .ytp-panel-menu', 5e3).then(
-    //     result => {
-    //         result.append(wtf)
-    //         sharedPlayerElements.hlsToggle = wtf
-    //         console.log('added it')
-    //     },
-    //     _ => console.log('failed to add quality option to settings')
-    // )
 
     function panelReady() {
         const panel = document.querySelector('div:not(.ytp-contextmenu) > div.ytp-panel > .ytp-panel-menu')
@@ -943,6 +970,7 @@ function hookHlsjs() {
 
     hls.on(Hls.Events.ERROR, (event, data) => {
         console.log(event, data)
+        // we can check if the error was solved in data.errorAction.resolved
         if (data.fatal) {
             console.log('fatal error, disabling. A page reload might fix this')
             Toast.show('fatal playback error')
