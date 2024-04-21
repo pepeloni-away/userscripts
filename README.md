@@ -26,6 +26,9 @@ So far it includes:
 * disable channel page autoplay.
 * action button tweaks - reverse the order of action buttons so that "Save" is first, or remove the others completely.
 
+## [Youtube Hls Enabler](https://github.com/pepeloni-away/userscripts/raw/main/youtube-hls-enabler.user.js)
+Fetch and play the hls manifest from the ios player response in the browser.
+
 ## [Edapp Show Answers](https://github.com/pepeloni-away/userscripts/raw/main/edapp-show-answers.user.js)
 Supports drag & drop and choice list type of quizzes.
 Always off by default, toggle with Ctrl+h.
