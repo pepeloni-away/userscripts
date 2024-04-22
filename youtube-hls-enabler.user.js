@@ -627,6 +627,7 @@ function attach$3(onInitialData) {
 
             sharedPlayerElements.id = id
         }
+        currentVideoId = id
 
 
 
@@ -1008,32 +1009,33 @@ function unhookHlsjs() {
 
 
 
-// it seems both violentmonkey and tampermonkey log a ReferenceError: copyhls is not defined
-// but everything works fine ???
+
+let currentVideoId
+let menuCommandId = 'copyHls'
 const opts = {
-    id: 'copyhls',
+    id: menuCommandId,
     autoClose: false,
 }
 const initialCaption = 'Copy new hls manifest'
 function menuCommandFn() {
-    console.log('clicked')
-    GM_registerMenuCommand('Fetching...', _ => {}, opts)
-    const newResponse = getUnlockedPlayerResponse(sharedPlayerElements.id, '', true)
+    console.log('copy new hls manifest clicked')
+    menuCommandId = GM_registerMenuCommand('Fetching...', _ => {}, opts)
+    const newResponse = getUnlockedPlayerResponse(currentVideoId, '', true)
     const url = newResponse?.streamingData?.hlsManifestUrl
     if (url) {
         GM_setClipboard(url, 'text/plain')
-        GM_registerMenuCommand('Copied!', _ => {}, opts)
+        menuCommandId = GM_registerMenuCommand('Copied!', _ => {}, opts)
         setTimeout(
-            GM_registerMenuCommand(initialCaption, menuCommandFn, opts),
+            _ => { menuCommandId = GM_registerMenuCommand(initialCaption, menuCommandFn, opts) },
             1000
         )
         return
     }
-    GM_registerMenuCommand('Error!', _ => {}, opts)
+    menuCommandId = GM_registerMenuCommand('Error!', _ => {}, opts)
     console.log('failed to copy hls manifest', newResponse)
     setTimeout(
-        GM_registerMenuCommand(initialCaption, menuCommandFn, opts),
+        _ => { menuCommandId = GM_registerMenuCommand(initialCaption, menuCommandFn, opts) },
         3000
     )
 }
-GM_registerMenuCommand(initialCaption, menuCommandFn, opts)
+menuCommandId = GM_registerMenuCommand(initialCaption, menuCommandFn, opts)
