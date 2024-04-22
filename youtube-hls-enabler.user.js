@@ -4,9 +4,11 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.3
+// @version     1.4
 // @description Play the hls manifest from the ios player response. Based on https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass
 // @grant       GM_xmlhttpRequest
+// @grant       GM_registerMenuCommand
+// @grant       GM_setClipboard
 // @require     https://cdn.jsdelivr.net/npm/hls.js@1
 // @match       https://www.youtube.com/*
 // ==/UserScript==
@@ -243,10 +245,10 @@ function isUserLoggedIn() {
     return false;
 }
 
-function getUnlockedPlayerResponse(videoId, reason) {
+function getUnlockedPlayerResponse(videoId, reason, copy) {
     // Check if response is cached
     // if (cachedPlayerResponse.videoId === videoId) return createDeepCopy(cachedPlayerResponse);
-    if (cachedPlayerResponse.videoId === videoId) {
+    if (cachedPlayerResponse.videoId === videoId && !copy) {
         try {
             // check if hls manifest expired on the cached response
             // for the edge case of pausing a video at night and continuing it next morning
@@ -338,7 +340,9 @@ function getUnlockedPlayerResponse(videoId, reason) {
     });
 
     // Cache response to prevent a flood of requests in case youtube processes a blocked response mutiple times.
-    cachedPlayerResponse = { videoId, ...createDeepCopy(unlockedPlayerResponse) };
+    if (!copy) {
+        cachedPlayerResponse = { videoId, ...createDeepCopy(unlockedPlayerResponse) };
+    }
 
     return unlockedPlayerResponse;
 }
@@ -995,3 +999,35 @@ function unhookHlsjs() {
     // }
     vid.src = undefined // it seems youtube fixes this almost instantly
 }
+
+
+
+// it seems both violentmonkey and tampermonkey log a ReferenceError: copyhls is not defined
+// but everything works fine ???
+const opts = {
+    id: 'copyhls',
+    autoClose: false,
+}
+const initialCaption = 'Copy new hls manifest'
+function menuCommandFn() {
+    console.log('clicked')
+    GM_registerMenuCommand('Fetching...', _ => {}, opts)
+    const newResponse = getUnlockedPlayerResponse(sharedPlayerElements.id, '', true)
+    const url = newResponse?.streamingData?.hlsManifestUrl
+    if (url) {
+        GM_setClipboard(url, 'text/plain')
+        GM_registerMenuCommand('Copied!', _ => {}, opts)
+        setTimeout(
+            GM_registerMenuCommand(initialCaption, menuCommandFn, opts),
+            1000
+        )
+        return
+    }
+    GM_registerMenuCommand('Error!', _ => {}, opts)
+    console.log('failed to copy hls manifest', newResponse)
+    setTimeout(
+        GM_registerMenuCommand(initialCaption, menuCommandFn, opts),
+        3000
+    )
+}
+GM_registerMenuCommand(initialCaption, menuCommandFn, opts)
