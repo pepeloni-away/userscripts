@@ -4,7 +4,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.4
+// @version     1.5
 // @description Play the hls manifest from the ios player response. Based on https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass
 // @grant       GM_xmlhttpRequest
 // @grant       GM_registerMenuCommand
@@ -810,8 +810,7 @@ const hls = new Hls({
           },
           errorRetry: {
             maxNumRetry: 5,
-            // retryDelayMs: 3000,
-            retryDelayMs: 1000,
+            retryDelayMs: 3000,
             maxRetryDelayMs: 15000,
             backoff: 'linear',
             shouldRetry: function(...args) { // retryConfig, retryCount, isTimeout, loaderResponse, originalShouldRetryResponse
@@ -822,9 +821,16 @@ const hls = new Hls({
                     // 'args3:',
                     // args[3]
                 )
+                if (args[3].recoverable) {
+                    // this is smol, we can edit it and request without delay as if the redirect was succesfull - Hls.DefaultConfig.loader.prototype.retry.toString()
+                    // args[0].instant = true
+                    args[0].retryDelayMs = 150 // this applies to the config of this eror only, which is good
+                    return args[3].recoverable
+                }
                 // return args[3].recoverable && args[1] < 7 ? true : false 
                 // return args[3].recoverable ? true : false
-                return args[3].recoverable ? true : args[4]
+                // return args[3].recoverable ? true : args[4]
+                return args[4]
             }
           },
         },
