@@ -4,7 +4,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.5
+// @version     1.6
 // @description Play the hls manifest from the ios player response. Based on https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass
 // @grant       GM_xmlhttpRequest
 // @grant       GM_registerMenuCommand
@@ -230,7 +230,6 @@ function getUnlockStrategies(videoId, reason) {
 }
 
 let cachedPlayerResponse = {};
-// let lastProxiedGoogleVideoUrlParams;
 
 function createDeepCopy(obj) {
     return nativeJSONParse(JSON.stringify(obj));
@@ -688,119 +687,110 @@ function interceptObjectProperty(prop, onSet) {
     });
 }
 
-// const hls = new Hls() // api guide at https://github.com/video-dev/hls.js/blob/master/docs/API.md#hlscurrentlevel
-// special playlist post processing function
-function process(playlist) {
-    return playlist;
-}
+// const hls = new Hls() // api guide at https://github.com/video-dev/hls.js/blob/master/docs/API.md
 
-class pLoader extends Hls.DefaultConfig.loader {
+// method 1
+/* class fLoader extends Hls.DefaultConfig.loader {
     constructor(config) {
         super(config);
-        var load = this.load.bind(this);
+        const load = this.load.bind(this);
         this.load = function (context, config, callbacks) {
             // console.log(...arguments)
-            if (context.type == 'manifest') {
-                var onSuccess = callbacks.onSuccess;
-                callbacks.onSuccess = function (response, stats, context) {
-                    console.log(...arguments)
-                    response.data = process(response.data);
-                    onSuccess(response, stats, context);
-                };
-            }
-            load(context, config, callbacks);
-        };
-    }
-}
+            const onError = callbacks.onError
+            callbacks.onError = function (error, context, xhr) {
+                // hls.js doesn' retry on code 0 cors error, change it here for shouldRetry to be called next
+                // https://github.com/video-dev/hls.js/blob/773fe886ed45cc83a015045c314763953b9a49d9/src/utils/error-helper.ts#L77
 
-class fLoader extends Hls.DefaultConfig.loader {
-    constructor(config) {
-        super(config);
-        var load = this.load.bind(this);
-        this.load = function (context, config, callbacks) {
-            // console.log(...arguments)
-            if (true) {
-                // var onSuccess = callbacks.onSuccess;
-                // callbacks.onSuccess = function (response, stats, context) {
-                //     console.log(...arguments)
-                //     // response.data = process(response.data);
-                //     onSuccess(response, stats, context);
-                // };
-
-                const onError = callbacks.onError
-                callbacks.onError = function(error, context, xhr) {
-                    // it doesn' retry on code 0 cors error, change it here for shouldRetry to be called next
-                    // https://github.com/video-dev/hls.js/blob/773fe886ed45cc83a015045c314763953b9a49d9/src/utils/error-helper.ts#L77
-                    // error.code = 302
-                    // error.text = 'pep'
-                    // error.test = 'heh' // so you can add values here and they get passes to shouldRetry
-                    console.log('err', ...arguments)
-                    // onError(error, context, xhr)
-                    
-                    if (error.code === 0 && new URL(context.url).hostname.endsWith('.googlevideo.com')) {
-                        GM_xmlhttpRequest({
-                            url: context.url,
-                            onload: function(r) {
-                                // console.log(r, r.finalUrl, context.url)
-                                if (r.status === 200 && r.finalUrl !== context.url) {
-                                    console.log(
-                                        'recoverable cors error',
-                                        // r,
-                                    )
-                                    error.code = 302
-                                    error.recoverable = true
-                                    // error.redirectUrl = r.finalUrl
-                                    // context.url = 'patema' // changes but is not passed to shouldRetry
-                                    // context.frag.relurl = 'relurl' // neither is this
-                                    context.frag._url = '_url' // or this EDIT: this one is used when shouldRetry returns true, even if it is not pased to shouldRetry
-                                    context.frag._url = r.finalUrl
-                                    onError(error, context, xhr)
-                                }
-                            },
-                            onerror: function(r) {
-                                console.log(
-                                    'failed to recover cors error',
-                                    // r,
-                                )
+                console.log('err', ...arguments, 'errrrr', this.requestTimeout)
+                if (error.code === 0 && new URL(context.url).hostname.endsWith('.googlevideo.com')) {
+                    GM_xmlhttpRequest({
+                        url: context.url,
+                        onload: function (r) {
+                            if (r.status === 200 && r.finalUrl !== context.url) {
+                                error.code = 302
+                                error.recoverable = true // this gets passed to shouldRetry
+                                // context.frag._url is the url used if shouldRetry returns true
+                                context.frag._url = r.finalUrl
                                 onError(error, context, xhr)
                             }
-                        })
-                    } else {
-                        onError(error, context, xhr)
-                    }
+                        },
+                        onerror: function (r) {
+                            console.log(
+                                'Failed to recover cors error',
+                                r,
+                            )
+                            onError(error, context, xhr)
+                        }
+                    })
+                } else {
+                    onError(error, context, xhr)
                 }
             }
             load(context, config, callbacks);
-        };
+        }
+    }
+} */
+
+// method 3
+// fLoader only runs on fragments
+// add .isFragment to xhr here to use it in xhrSetup
+class fLoader2 extends Hls.DefaultConfig.loader {
+    constructor(config) {
+        super(config);
+        this.loadInternal = function() {
+            var t = this,
+                e = this.config,
+                r = this.context;
+            if (e && r) {
+                var i = this.loader = new self.XMLHttpRequest,
+                    n = this.stats;
+                i.isFragment = true // just adding this to the original loadInternal function, we use it in xhrSetup
+                n.loading.first = 0, n.loaded = 0, n.aborted = !1;
+                var a = this.xhrSetup;
+                a ? Promise.resolve().then((function() {
+                    if (!t.stats.aborted) return a(i, r.url)
+                })).catch((function(t) {
+                    return i.open("GET", r.url, !0), a(i, r.url)
+                })).then((function() {
+                    t.stats.aborted || t.openAndSendXhr(i, r, e)
+                })).catch((function(e) {
+                    t.callbacks.onError({
+                        code: i.status,
+                        text: e.message
+                    }, r, i, n)
+                })) : this.openAndSendXhr(i, r, e)
+            }
+        }.bind(this)
     }
 }
+// const desc = Object.getOwnPropertyDescriptor(Hls.DefaultConfig.abrController.prototype, "nextAutoLevel")
+// 
+// Object.defineProperty(Hls.DefaultConfig.abrController.prototype, "nextAutoLevel", {
+//     get: desc.get,
+//     set: new Proxy(desc.set, {
+//         apply(target, thisArg, args) {
+//             console.log('set nextautolvl', ...arguments, 'bb', )
+//             return Reflect.apply(...arguments)
+//         }
+//     })
+// })
 
 const hls = new Hls({
     // sometimes segment urls redirect to a different url (usually 234 audio)
     // the redirect loses the Origin request header and we get blocked by cors
     // https://stackoverflow.com/a/22625354 - related info
-    // could use GM_xmlhttpRequest to bypass cors and replace the response?
-    // https://github.com/video-dev/hls.js/blob/master/docs/API.md#xhrsetup api guide
-    // https://github.com/zerodytrash/YouTube-Livechat-GoToChannel/blob/master/YouTube%20Livechat%20Channel%20Resolver.user.js#L34 xhr proxy example
 
-    // should also be possible to make a custom loader that uses GM_xmlhttpRequest
-    // https://github.com/video-dev/hls.js/blob/master/docs/API.md#loader
-
-    // there's a http-equiv meta with a base64 string that has some origin stuff, is that what youtube uses?
-
-    // could also try to change Referrer Policy to something more lax https://help.tawk.to/article/how-to-change-the-referrer-policy-setting-on-your-website
-
-
-
-
-    // welp, i sure am glad i didn't have to learn how to build a hls.js loader that use GM_xmlhttpRequest
-    // if cors situation gets worse in the future it should be possible to manupulate this file
-    // https://github.com/video-dev/hls.js/blob/773fe886ed45cc83a015045c314763953b9a49d9/src/utils/xhr-loader.ts#L153
-    // could trap xhrproto.onreadystatechange setter, modify the xhr with data from GM_xmlhttpRequest and call it manually
-    // or try to assign it directly to GM_xmlhttpRequest? it looks like it only uses props that both gm and normal xhr have
-
+    // workaround method 1 requests redirecting fragments twice, once via gm_xhr to get the final url
+    // and hls.js requests the final url again.
+    // inefficient but nothing compared to the amount of abuse the yt fragment urls can take.
+    // :::: it seems it breaks the built in hls.js autobitrate controller and sometimes gets stuck on low quality
+    // :::: makes hls.bandwidthEstimate grow forever?
+    //
+    // check git here for older discarded workaround ideas if the current one fails later on
     debug: false,
-    fragLoadPolicy: {
+
+    // methon 1
+   /*  fragLoadPolicy: {
         default: {
           maxTimeToFirstByteMs: 9000,
           maxLoadTimeMs: 100000,
@@ -814,35 +804,105 @@ const hls = new Hls({
             retryDelayMs: 3000,
             maxRetryDelayMs: 15000,
             backoff: 'linear',
-            shouldRetry: function(...args) { // retryConfig, retryCount, isTimeout, loaderResponse, originalShouldRetryResponse
-                // args[3].url = 'args3url'
-                console.log(
-                    'shouldRetry',
-                    ...args,
-                    // 'args3:',
-                    // args[3]
-                )
-                if (args[3].recoverable) {
-                    // this is smol, we can edit it and request without delay as if the redirect was succesfull - Hls.DefaultConfig.loader.prototype.retry.toString()
-                    // args[0].instant = true
-                    args[0].retryDelayMs = 150 // this applies to the config of this eror only, which is good
-                    return args[3].recoverable
+            // can't find a way to define shouldRetry alone without this entire block
+            shouldRetry: function(retryConfig, retryCount, isTimeout, loaderResponse, originalShouldRetryResponse) {
+                if (loaderResponse.recoverable) {
+                    console.log(
+                        'Retrying recoverable cors error. Attempt nr:',
+                        retryCount,
+                    )
+                    // retryConfig.retryDelayMs = 150
+                    retryConfig.retryDelayMs = 0 // hmm, this actually changes the entire config
+                    retryConfig.maxRetryDelayMs = 0
+                    return true
                 }
-                // return args[3].recoverable && args[1] < 7 ? true : false 
-                // return args[3].recoverable ? true : false
-                // return args[3].recoverable ? true : args[4]
-                return args[4]
+                retryConfig.retryDelayMs = 3000
+                retryConfig.maxRetryDelayMs = 15000
+                return originalShouldRetryResponse
             }
           },
         },
       },
-    // pLoader: pLoader,
-    fLoader: fLoader,
+    fLoader: fLoader, */
+
+
+      fLoader: fLoader2,
+      xhrSetup(xhr, url) {
+
+        // method 2
+        // this block alone works perfectly but requests everything twice so it is slower
+        /* return new Promise(function(resolve, reject) {
+            // console.log('req')
+            GM_xmlhttpRequest({
+                url: url,
+                onload: function(r) {
+                    // console.log('loaded')
+                    if (r.status === 200) {
+                        xhr.open('GET', r.finalUrl)
+                        resolve()
+                    }
+                },
+                onerror: function(r) {
+                    console.log(
+                        'Failed to recover cors error',
+                        r,
+                    )
+                    reject()
+                }
+            })
+        }) */
+
+        // method 3
+        // source code reference https://github.com/video-dev/hls.js/blob/773fe886ed45cc83a015045c314763953b9a49d9/src/utils/xhr-loader.ts#L153
+        // this only requests fragments once with gm_xhr
+        // seems to also work perfectly so far
+        if (xhr.isFragment) {
+            // const ogsend = xhr.send.bind(xhr)
+            xhr.send = function(...args) {
+                // console.log('sent')
+                xhr._onreadystatechange = xhr.onreadystatechange
+                xhr._onprogress = xhr.onprogress
+                xhr.onprogress = null
+                xhr.onreadystatechange = null
+                Object.defineProperty(xhr, "readyState", {writable: true})
+                Object.defineProperty(xhr, "status", {writable: true})
+                Object.defineProperty(xhr, "response", {writable: true})
+
+                // return ogsend(...args)
+            }
+
+            return new Promise(function(resolve, reject) {
+                // console.log('req')
+                GM_xmlhttpRequest({
+                    url: url,
+                    responseType: 'arraybuffer',
+                    // onprogress: function(e) {
+                    //     xhr._onprogress({
+                    //         loaded: e.loaded,
+                    //         total: e.total
+                    //     })
+                    // },
+                    onprogress: xhr._onprogress,
+                    onreadystatechange: function(e) {
+                        // console.log(
+                        //     'rsc',
+                        //     // e,
+                        //     // xhr
+                        // )
+                        xhr.status = e.status
+                        xhr.readyState = e.readyState
+                        xhr.response = e.response
+                        xhr._onreadystatechange()
+                    }
+                })
+                resolve()
+            })
+        }
+      }
 })
 
 const sharedPlayerElements = {}
-// console.log('sharedPlayerElements:', sharedPlayerElements , 'hls:', hls)
-// unsafeWindow.Hls = Hls
+unsafeWindow.Hls = Hls
 unsafeWindow.hls = hls
 unsafeWindow.sharedPlayerElements = sharedPlayerElements
 // self.hls = hls
@@ -960,9 +1020,9 @@ function resetPlayer() {
 function hookHlsjs() {
     const vid = document.querySelector('video')
     const time = vid.currentTime
-    // if (vid.src) {
-    //     sharedPlayerElements.pre_hlsjs_hook_src = vid.src
-    // }
+    if (vid.src) {
+        sharedPlayerElements.pre_hlsjs_hook_src = vid.src
+    }
 
     hls.loadSource(sharedPlayerElements.hlsUrl)
     hls.attachMedia(vid)
@@ -1001,10 +1061,11 @@ function unhookHlsjs() {
     const vid = hls.media
     hls.detachMedia(vid) // this also removes the src attribute
 
-    // if (sharedPlayerElements.pre_hlsjs_hook_src) {
-    //     vid.src = sharedPlayerElements.pre_hlsjs_hook_src
-    // }
-    vid.src = undefined // it seems youtube fixes this almost instantly
+    if (sharedPlayerElements.pre_hlsjs_hook_src) {
+        vid.src = sharedPlayerElements.pre_hlsjs_hook_src
+        delete sharedPlayerElements.pre_hlsjs_hook_src
+    }
+    // vid.src = undefined // it seems youtube fixes this almost instantly
 }
 
 
