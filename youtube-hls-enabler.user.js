@@ -4,7 +4,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.6
+// @version     1.7
 // @description Play the hls manifest from the ios player response. Based on https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass
 // @grant       GM_xmlhttpRequest
 // @grant       GM_registerMenuCommand
@@ -590,13 +590,14 @@ function attach$3(onInitialData) {
 
 
 
-        const id = playerResponse.videoDetails.videoId
-        
+        const id = playerResponse?.videoDetails?.videoId
+        // don't run on unavailable videos
         // don't run when hovering over videos on the youtube home page
         // don't run on unavailable videos (no streaming data)
         // don't run when https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass unlocked the video
         // don't run on live/premiere (assuming isLiveContent is for premieres)
         if (
+            id &&
             location.href.includes(id) &&
             playerResponse.streamingData &&
             !playerResponse.unlocked &&
