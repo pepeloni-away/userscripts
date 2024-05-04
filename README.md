@@ -46,3 +46,9 @@ This adds the following to chiaki:
 ## [Twitch DVR player](https://github.com/pepeloni-away/userscripts/raw/main/twitch-dvr-player.user.js)
 Full credits to the extension at https://github.com/caeleel/twitch-dvr#twitch-dvr-player.  
 This is just a way to run the extension without manually loading it into each browser you use.
+
+## [themes.moe updater](https://github.com/pepeloni-away/userscripts/raw/main/themes.moe-updater.user.js)
+Insert updated themes from animethemes.moe into themes.moe's outdated api responses.
+Fetching anime ids and updated themes is slow compared to the orignal outdated api responses and this userscript doesn't keep the original theme version structure because i didn't understand it.
+  
+Before i figured this out i made a minimalist themes.moe-inspired page [here](https://github.com/pepeloni-away/mes).
