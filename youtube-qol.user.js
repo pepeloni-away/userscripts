@@ -4,7 +4,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.3
+// @version     1.4
 // @description 2/26/2023, 5:22:33 PM
 // @grant       none
 // @match       https://www.youtube.com/*
@@ -120,7 +120,19 @@
   class="style-scope yt-icon" style=""></path></g></svg></button>'
                     );
                     ref.parentElement.querySelector(".rmbtn").onclick = function () {
-                        new MutationObserver(function (m, obs) {
+                        // console.log('click')
+                        this.nextSibling.click()
+                        // need a bit of delay after the click
+                        requestAnimationFrame(_ => {
+                            let ytRmBtn = [
+                                ...document.querySelectorAll("yt-formatted-string"),
+                            ].find(e => e.innerText === 'Remove from Watch later')
+                            // console.log(ytRmBtn)
+                            ytRmBtn ? ytRmBtn.click() : console.log('ytrmbtn doko?')
+                        })
+
+                        // yt doesn't recreate the popup menu every time we press the option button anymore
+                        /* new MutationObserver(function (m, obs) {
                             // console.log(m)
                             const ytRmBtn = [
                                 ...document.querySelectorAll("yt-formatted-string"),
@@ -135,7 +147,7 @@
                             }
                             // document.querySelector("tp-yt-iron-dropdown.style-scope.ytd-popup-container").style.visibility = ""
                         }).observe(document, { childList: true, subtree: true });
-                        this.nextSibling.click();
+                        this.nextSibling.click(); */
                     };
                     result.hasRmBtn = true;
                 }).observe(result, { childList: true });
