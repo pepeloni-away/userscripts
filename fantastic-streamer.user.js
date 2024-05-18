@@ -188,7 +188,7 @@ function init() {
         "add": {
             value: function add(argsArray) {
                 const date = new Date().getTime()
-                const prop = iframe ? date + "iframe" : date
+                let prop = iframe ? date + "iframe" : date
                 const val = {
                     content: this.stringify(argsArray),
                     element: null,
