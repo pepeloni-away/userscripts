@@ -798,7 +798,7 @@ function startIntent(url) {
             intent += "S.--referrer=mp4upload.com;"
             intent += "S.--tls-verify=no;"
         }
-        if ("filemoon.sx" === location.hostname) {
+        if (["filemoon.sx", "kerapoxy.cc"].includes(location.hostname)) {
             intent += `S.--user-agent=${utils.genericHeaders.user_agent};`
         }
         if ("watchsb.com" === location.hostname) {
