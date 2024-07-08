@@ -4,7 +4,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.7
+// @version     1.8
 // @description Play the hls manifest from the ios player response. Based on https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass
 // @grant       GM_xmlhttpRequest
 // @grant       GM_registerMenuCommand
@@ -573,6 +573,8 @@ try {
 }
 
 
+let ageRestricted = false
+let live = false
 function attach$3(onInitialData) {
     interceptObjectProperty('playerResponse', (obj, playerResponse) => {
         // console.log(`playerResponse property set, contains sidebar: ${!!obj.response}`);
@@ -594,28 +596,33 @@ function attach$3(onInitialData) {
         // don't run on unavailable videos
         // don't run when hovering over videos on the youtube home page
         // don't run on unavailable videos (no streaming data)
-        // don't run when https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass unlocked the video
-        // don't run on live/premiere (assuming isLiveContent is for premieres)
         if (
             id &&
             location.href.includes(id) &&
             playerResponse.streamingData &&
-            !playerResponse.unlocked &&
-            playerResponse.videoDetails &&
-            !playerResponse.videoDetails.isLive &&
-            !playerResponse.videoDetails.isLiveContent
+            playerResponse.videoDetails
         ) {
             if (id !== sharedPlayerElements.id) {
+                ageRestricted = !!playerResponse.unlocked || !!playerResponse.YHEageRestricted // for cached responses
+                live = !!playerResponse.videoDetails.isLive
                 console.log(
                     '-----------------------------------------------------\nnew vid',
                     id,
+                    '\nis live:',
+                    live,
+                    '\nis SYARB unlocked:',
+                    ageRestricted,
                     // playerResponse,
                 )
                 resetPlayer()
                 sharedPlayerElements.hlsUrl = false
+                // mark response as ageRestricted so we know if we meet it agan from cache without playerResponse.unlocked
+                ageRestricted && (playerResponse.YHEageRestricted = true)
             }
 
-            if (isPremium1080pAvailable(playerResponse.playabilityStatus) || !onlyOnPremiumAvailable) {
+            // don't run when https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass unlocked the video
+            // don't run on live content
+            if (!ageRestricted && !live && (isPremium1080pAvailable(playerResponse.playabilityStatus) || !onlyOnPremiumAvailable)) {
                 if (!playerResponse.streamingData.__hlsManifestUrl) {
                     unlockResponse$1(playerResponse)
                     // console.log('unlock fn, obj', unlockResponse$1, playerResponse)
