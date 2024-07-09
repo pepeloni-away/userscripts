@@ -796,6 +796,10 @@ const hls = new Hls({
     //
     // check git here for older discarded workaround ideas if the current one fails later on
     debug: false,
+    // startLevel: 15, // this gets the player stuck if your internet isn't up to par with 616, or 1440p if 616 is not available
+    // startFragPrefetch: true,
+    abrEwmaDefaultEstimate: 5000000, // bump to 5MBps from 0.5 MBps default, reasonable if you have good enough internet to consider this userscript i'd say
+                                     // also doesn't take away the ability to auto adjust to lower res if needed
 
     // methon 1
    /*  fragLoadPolicy: {
