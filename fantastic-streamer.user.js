@@ -357,9 +357,9 @@ function hooks() {
                 if (args[0] !== "intent" && allowPlay) break label // so that i can use HTMLMediaElement.prototype.play.bind(videlm)("intent") for corner btn
                 if (qualityList.empty === true) return
                 if (config.preferedQuality === "best") {
-                    return startIntent(qualityList.best)
+                    return startIntent(qualityList.best, thisArg)
                 }
-                if (qualityList[config.preferedQuality]) {
+                if (qualityList[config.preferedQuality], thisArg) {
                     return startIntent(qualityList[config.preferedQuality])
                 }
                 return askQuality(thisArg)
@@ -735,7 +735,7 @@ function greet() {
     }
 }
 
-function startIntent(url) {
+function startIntent(url, video) {
     const utils = {
         genericHeaders: {
             user_agent: navigator.userAgent.replaceAll(";", "%3b"),
@@ -812,6 +812,10 @@ function startIntent(url) {
 
         if (qualityList.subs.length !== 0) {
             qualityList.subs.length === 1 ? intent += `S.--sub-file=${qualityList.subs[0]};` : intent += `S.--sub-files=${qualityList.subs.join(":")};`
+        }
+
+        if (video.currentTime) {
+            intent += `S.--start=${video.currentTime};`
         }
         intent += "end"
 
@@ -1067,7 +1071,7 @@ function askQuality(videoElement) {
         for (const [prop, val] of Object.entries(qualityList)) {
             const btn = document.createElement("button")
             btn.innerText = prop
-            btn.addEventListener("click", _ => startIntent(val))
+            btn.addEventListener("click", _ => startIntent(val, videoElement))
             target.append(btn)
         }
         // also add unknown stuff
@@ -1076,7 +1080,7 @@ function askQuality(videoElement) {
         for (const val of qualityList.unknown) {
             const btn = document.createElement("button")
             btn.innerText = "unknown" + count
-            btn.addEventListener("click", _ => startIntent(val))
+            btn.addEventListener("click", _ => startIntent(val, videoElement))
             target.append(btn)
             count++
         }
