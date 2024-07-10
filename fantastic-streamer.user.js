@@ -192,7 +192,8 @@ function init() {
                 const val = {
                     content: this.stringify(argsArray),
                     element: null,
-                    color: iframe ? config.debugWindow_iframeColor : config.debugWindow_topColor
+                    color: iframe ? config.debugWindow_iframeColor : config.debugWindow_topColor,
+                    fromIframe: iframe
                 }
                 // account for https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/getTime#return_time_precision
                 while (this[prop] !== undefined) {
@@ -209,13 +210,15 @@ function init() {
                 if (document.querySelector("#phonedebug") === null) return
                 const target = document.querySelector("#logs")
                 let lastValue = null
+                let deleted = false
                 for (const [key, value] of Object.entries(this)) {
                     if (value.element === null) {
                         value.element = document.createElement("pre")
                     }
-                    if (lastValue && lastValue.content === value.content) {
+                    if (lastValue && lastValue.content === value.content && lastValue.fromIframe === value.fromIframe) {
                         delete this[key]
                         this.deleted.push(key)
+                        deleted = true
                         lastValue.element.className = "dupe"
                         const count = lastValue.element.getAttribute("dupeCounter") || 0
                         lastValue.element.setAttribute("dupeCounter", `${parseInt(count) + 1}`)
@@ -223,7 +226,7 @@ function init() {
                     }
                     value.element.style.color = value.color
                     value.element.innerText = value.content
-                    lastValue = value
+                    lastValue = deleted ? lastValue : value
                 }
                 target.append(...Object.keys(this).sort().map(i => this[i].element))
             }
