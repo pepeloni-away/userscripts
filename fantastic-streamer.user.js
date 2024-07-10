@@ -428,7 +428,7 @@ function hooks() {
     /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
     // ===iframe page extractors===
     ! function extractKwik() {
-        if ("kwik.cx" !== location.hostname) return
+        if (["kwik.cx", "kwik.si"].includes(location.hostname) === false) return
         self.addEventListener("load", _ => {
             const quality = document.documentElement.innerHTML.match(/(?<=_)\d{3,4}(?=p_)/)[0]
             const a = document.querySelector("script:not([src])").innerText.match(/m3u8.*?(?=')/)[0].split("|").reverse().slice(5)
