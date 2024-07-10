@@ -354,7 +354,7 @@ function hooks() {
     HTMLMediaElement.prototype.play = new Proxy(HTMLMediaElement.prototype.play, {
         apply(target, thisArg, args) {
             label: if (android) {
-                if (args[0] !== "intent" && allowPlay) break label // so that i can use HTMLMediaElement.prototype.play("intent", *videoElement for ask menu)
+                if (args[0] !== "intent" && allowPlay) break label // so that i can use HTMLMediaElement.prototype.play.bind(videlm)("intent") for corner btn
                 if (qualityList.empty === true) return
                 if (config.preferedQuality === "best") {
                     return startIntent(qualityList.best)
@@ -362,7 +362,7 @@ function hooks() {
                 if (qualityList[config.preferedQuality]) {
                     return startIntent(qualityList[config.preferedQuality])
                 }
-                return askQuality(thisArg instanceof HTMLVideoElement ? thisArg : args[1])
+                return askQuality(thisArg)
             }
             if (document.querySelector("#FS-cornerButton")) { // hide this without putting it to the top right of the video, it causes overflow and creates a scroll bar [[[[[[[[[[]]]]]]]]]]
                 document.querySelector("#FS-cornerButton").style.transform = "translateX(100%) translateY(-100%)"
@@ -406,16 +406,16 @@ function hooks() {
         configurable: true
     })
     HTMLSourceElement.prototype.setAttribute = new Proxy(HTMLSourceElement.prototype.setAttribute, {
-            apply(target, thisArg, args) {
-                setTimeout(_ => {
-                    if (thisArg.parentElement && thisArg.parentElement instanceof HTMLVideoElement) {
-                        verbose && v("scraping video parent of source element")
-                        utils.scrapeVideo(thisArg.parentElement)
-                    }
-                })
-                return Reflect.apply(...arguments)
-            }
-        })
+        apply(target, thisArg, args) {
+            setTimeout(_ => {
+                if (thisArg.parentElement && thisArg.parentElement instanceof HTMLVideoElement) {
+                    verbose && v("scraping video parent of source element")
+                    utils.scrapeVideo(thisArg.parentElement)
+                }
+            })
+            return Reflect.apply(...arguments)
+        }
+    })
 
 
     // ===extractors for unconventional sites===
@@ -773,7 +773,7 @@ function startIntent(url) {
     // do a timeout fallback here that starts intent with iframe title in case there's no response from titleResponseListener
 
     function launchIntent(title) {
-        title = encodeURI(title) // title.replaceAll("%", "\%") // test with https://aniwave.to/watch/magical-star-kanon-100.lnlq/ep-1
+        title = encodeURIComponent(title) // title.replaceAll("%", "\%") // test with https://aniwave.to/watch/magical-star-kanon-100.lnlq/ep-1
         verbose && v("launching intent with title=", title)
         let intent = `intent:${url}#Intent;type=video/any;S.title=${title};`
         /* ===Header requirements===
@@ -934,7 +934,7 @@ function cornerButton(videoParent, video) {
 
         // console.log("Not pressing!", longPress, e);
         if (longPress === false) {
-            e.type !== "mouseleave" && HTMLMediaElement.prototype.play("intent", video)
+            e.type !== "mouseleave" && HTMLMediaElement.prototype.play.bind(video)("intent")
         }
         longPress = false
         start = undefined
