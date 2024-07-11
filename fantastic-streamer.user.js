@@ -27,6 +27,7 @@
 // @match       https://a9bfed0818.nl/e/*
 // @match       https://mcloud.to/e/*
 // @match       https://mcloud.bz/e/*
+// @match       https://megaf.cc/e/*
 // @match       https://filemoon.sx/e/*
 // @match       https://kerapoxy.cc/e/*
 // @match       https://www.mp4upload.com/embed*
