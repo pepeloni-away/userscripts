@@ -815,7 +815,12 @@ function startIntent(url, video) {
         }
 
         if (qualityList.subs.length !== 0) {
-            qualityList.subs.length === 1 ? intent += `S.--sub-file=${qualityList.subs[0]};` : intent += `S.--sub-files=${qualityList.subs.join(":")};`
+            const temp = qualityList.subs.map(x => x.replaceAll(":", "\\:"))
+            // qualityList.subs.length === 1 ? intent += `S.--sub-file=${qualityList.subs[0]};` : intent += `S.--sub-files=${qualityList.subs.join(":")};`
+            // qualityList.subs.length === 1 ? intent += `S.--sub-file=${qualityList.subs[0]};` : intent += `S.--sub-files=${temp.join(":")};`
+            // intent += `S.--sub-files-set=${qualityList.subs[0]};`
+            intent += `S.--sub-files=${temp.join(":")};`
+            intent += `S.--sid=auto`
         }
 
         if (video.currentTime) {
