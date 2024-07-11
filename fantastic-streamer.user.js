@@ -825,6 +825,7 @@ function startIntent(url, video) {
 
         if (video.currentTime) {
             intent += `S.--start=${video.currentTime};`
+            intent += `S.--resume-playback=no;`
         }
         intent += "end"
 
