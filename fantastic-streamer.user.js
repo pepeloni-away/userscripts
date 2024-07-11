@@ -5,7 +5,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.2
+// @version     1.3
 // @description Open videos from webpages in android video players
 // @grant       GM_log
 // @grant       GM_getValue
@@ -132,7 +132,7 @@ async function cleanup() {
     const now = new Date().getTime()
     const arr = await GM_listValues()
     for (const key of arr) {
-        if (key !== "_prefs") {
+        if (["_prefs", "_rentry"].includes(key) === false) {
             await GM_deleteValue(key)
         }
     }
@@ -371,6 +371,9 @@ function hooks() {
             if (document.querySelector("#FS-cornerButton")) { // hide this without putting it to the top right of the video, it causes overflow and creates a scroll bar [[[[[[[[[[]]]]]]]]]]
                 document.querySelector("#FS-cornerButton").style.transform = "translateX(100%) translateY(-100%)"
             }
+            if (document.querySelector("#FS-SyncButton")) {
+                document.querySelector("#FS-SyncButton").style.transform = "translateX(-100%) translateY(-100%)"
+            }
             return Reflect.apply(...arguments)
         }
     })
@@ -378,6 +381,9 @@ function hooks() {
         apply(target, thisArg, args) {
             if (document.querySelector("#FS-cornerButton")) {
                 document.querySelector("#FS-cornerButton").style.transform = ""
+            }
+            if (document.querySelector("#FS-SyncButton")) {
+                document.querySelector("#FS-SyncButton").style.transform = ""
             }
             return Reflect.apply(...arguments)
         }
@@ -661,6 +667,15 @@ function topWindow() {
             GM_setValue(channel + "debugWindow", "qlist?")
         })
     }();
+
+    self.addEventListener('message', m => {
+        if (m.data.FS && m.data.FS === 'startIntent') {
+            self.addEventListener('focus', _ => {
+                m.source.focus()
+                flog('focused iframe once')
+            }, { once: true })
+        }
+    })
 }
 
 function iframeWindow() {
@@ -827,26 +842,100 @@ function startIntent(url, video) {
             intent += `S.--start=${video.currentTime};`
             intent += `S.--resume-playback=no;`
         }
-        intent += "end"
 
-        let a = document.querySelector("#FS-intentIframe")
-        if (a === null) {
-            a = document.createElement("iframe")
-            a.style.display = "none"
-            a.id = "FS-intentIframe"
-            document.body.append(a)
-            document.body.append(a)
+        /* watch a rentry url for video progress reply
+         * add a _rentry key to your userscript manager's value storage
+         * the value should be an object like:
+         * {
+         *  "rentryUrl" : "https://rentry.co/8p6blahblah/edit",
+         *  "rentryEditCode": "editcode",
+         *  "rentryCsrf": csrf token (look for csrfmiddlewaretoken),
+         *  "rentryCookie": cookie
+         * }
+         *
+         * you get the csrf and cookie by watching your dev tools network tab while saving an edit */
+        const _rentry = GM_getValue("_rentry")
+        if (_rentry) {
+            verbose && v("found _rentry key, adding rentry intent options")
+            intent += `S.rentryUrl=${_rentry.rentryUrl};`
+            intent += `S.rentryEditCode=${_rentry.rentryEditCode};`
+            intent += `S.rentryCsrf=${_rentry.rentryCsrf};`
+            intent += `S.rentryCookie=${encodeURIComponent(_rentry.rentryCookie)};`
+
+            document.querySelector("#FS-SyncButton").style.display = ''
+            async function generateVideoID(...args) {
+                const uniqueString = args.join()
+                const encoder = new TextEncoder();
+                const data = encoder.encode(uniqueString);
+                const hash = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hash));
+                const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                return hashHex;
+            }
+
+            function handler() {
+                flog("we back")
+                fetch(_rentry.rentryUrl.replace("/edit", "/raw"))
+                    .then(rsp => rsp.json())
+                    .then(rsp => {
+                        let progress = rsp.progress
+                        let total = rsp.total
+                        progress > 1 && (progress = progress / 1000)
+                        generateVideoID(title, video.duration)
+                        .then(id => {
+                            if (id === rsp.id) {
+                                flog("progress synced: " + progress)
+                                video.currentTime = progress
+                            } else {
+                                flog("mismatched ids for rentry sync")
+                            }
+                        })
+                    })
+                    .catch(e => {
+                        flog('failed to check progress')
+                        verbose && v('failed to check progress', e)
+                    })
+
+                self.removeEventListener("focus", handler)
+                self.fantasticListener = false
+            }
+            if (!self.fantasticListener) {
+                self.addEventListener("focus", handler)
+                self.fantasticListener = true
+            }
+            // strangely enough on android the top window regians focus even if iframe was focused when we started the intent
+            iframe && top.postMessage({FS: 'startIntent'}, '*')
+
+            return generateVideoID(title, video.duration)
+            .then(id => {
+                intent += `S.rentryID=${id};`
+                continue_()
+            })
         }
-        flog(intent)
-        a.contentWindow.location = intent
 
-        verbose && v("intent should have successfully launched")
+        function continue_() {
+            intent += "end"
+
+            let a = document.querySelector("#FS-intentIframe")
+            if (a === null) {
+                a = document.createElement("iframe")
+                a.style.display = "none"
+                a.id = "FS-intentIframe"
+                document.body.append(a)
+                document.body.append(a)
+            }
+            flog(intent)
+            a.contentWindow.location = intent
+
+            verbose && v("intent should have successfully launched")
+        }
+        continue_()
     }
 }
 
 function cornerButton(videoParent, video) {
     if (document.querySelector("#FS-cornerButton")) {
-        flog("cornerButton already exists", document.querySelector("#FS-cornerButton"))
+        verbose && v("cornerButton already exists", document.querySelector("#FS-cornerButton"))
         return
     }
     const html = `
@@ -855,6 +944,14 @@ function cornerButton(videoParent, video) {
                 <span>^</span>
                 open
                 <span>^</span>
+            </div>
+        </div>
+
+        <div id="FS-SyncButton" style="display: none;">
+            <div id="text">
+                <span style="">^</span>
+                focus
+                <span style="">^</span>
             </div>
         </div>
     `
@@ -885,13 +982,52 @@ function cornerButton(videoParent, video) {
             display: flex;
             align-items: flex-start;
         }
-        #FS-cornerButton > #text > span {
+        #FS-cornerButton > #text > span,
+        #FS-SyncButton > #text > span {
             color: orange;
             user-select: none !important;
+        }
+
+        #FS-SyncButton {
+            border-width: 50px;
+            border-style: solid;
+            border-color: red transparent transparent red;
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            width: 0px;
+            height: 0px;
+            display: flex;
+            justify-content: center;
+            z-index: 9999;
+            transition: transform 1s ease 0s;
+        }
+        #FS-SyncButton > #text {
+            position: relative;
+            rotate: -45deg;
+            right: 25px;
+            top: -25px;
+            cursor: pointer;
+            user-select: none !important;
+            color: gold;
+            font-size: 16px;
+            display: flex;
+            align-items: flex-start;
         }
     `
     videoParent.insertAdjacentHTML("beforeend", html)
     document.head.appendChild(document.createElement("style")).innerText = css
+    // ===sync button===
+    const syncButton = document.querySelector("#FS-SyncButton")
+    const _rentry = GM_getValue("_rentry")
+    if (_rentry && iframe) {
+        syncButton.style.display = ''
+    }
+    syncButton.addEventListener("click", e => {
+        e.stopPropagation()
+        e.target.focus()
+    }, true)
+    // ===/sync button===
     const div = document.querySelector("#FS-cornerButton")
     const text = document.querySelector("#FS-cornerButton > #text")
 
