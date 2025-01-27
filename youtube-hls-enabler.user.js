@@ -37,7 +37,12 @@ const console = {
 }
 
 const VALID_PLAYABILITY_STATUSES = ['OK', 'LIVE_STREAM_OFFLINE'];
-const GOOGLE_AUTH_HEADER_NAMES = ['Authorization', 'X-Goog-AuthUser', 'X-Origin'];
+const GOOGLE_AUTH_HEADER_NAMES = [
+    // 'Authorization',
+    // 'X-Goog-AuthUser',
+    // 'X-Origin',
+    'X-Goog-Visitor-Id',
+];
 
 var proxy = {
     getPlayer,
@@ -202,7 +207,7 @@ function getUnlockStrategies(videoId, reason) {
     return [
         {
             name: 'ios',
-            requiresAuth: false,
+            requiresAuth: true,
             payload: {
                 context: {
                     client: {
@@ -514,10 +519,10 @@ function unlockResponse$1(playerResponse) {
 
     // Transfer all unlocked properties to the original player response
     // Object.assign(playerResponse, unlockedPlayerResponse);
-    
+
     playerResponse.streamingData.__hlsManifestUrl = unlockedPlayerResponse.streamingData.hlsManifestUrl
     // is there a player library that can play dash, hls and mix and match by selecting video and audio streams? like playing 616+251
-    // playerResponse.streamingData.__adaptiveFormats = unlockedPlayerResponse.streamingData.adaptiveFormats 
+    // playerResponse.streamingData.__adaptiveFormats = unlockedPlayerResponse.streamingData.adaptiveFormats
 
 
     // playerResponse.playabilityStatus.paygatedQualitiesMetadata.qualityDetails[0].value = {} // this closes the popup after click and selects normal 1080p
@@ -532,6 +537,75 @@ function unlockResponse$1(playerResponse) {
     if (notifyOnSuccess) {
         Toast.show(messagesMap.success, 2);
     }
+}
+
+/**
+     *  Handles XMLHttpRequests and
+     * - Rewrite Googlevideo URLs to Proxy URLs (if necessary)
+     * - Store auth headers for the authentication of further unlock requests.
+     * - Add "content check ok" flags to request bodys
+     */
+function handleXhrOpen(method, url, xhr) {
+    const url_obj = new URL(url);
+    // let proxyUrl = unlockGoogleVideo(url_obj);
+    // if (proxyUrl) {
+    //     // Exclude credentials from XMLHttpRequest
+    //     Object.defineProperty(xhr, 'withCredentials', {
+    //         set: () => {},
+    //         get: () => false,
+    //     });
+    //     return proxyUrl.toString();
+    // }
+
+    if (url_obj.pathname.indexOf('/youtubei/') === 0) {
+        // Store auth headers in storage for further usage.
+        attach$4(xhr, 'setRequestHeader', ([headerName, headerValue]) => {
+            if (Config.GOOGLE_AUTH_HEADER_NAMES.includes(headerName)) {
+                set(headerName, headerValue);
+            }
+        });
+    }
+
+    // if (Config.SKIP_CONTENT_WARNINGS && method === 'POST' && ['/youtubei/v1/player', '/youtubei/v1/next'].includes(url_obj.pathname)) {
+    //     // Add content check flags to player and next request (this will skip content warnings)
+    //     attach$4(xhr, 'send', (args) => {
+    //         if (typeof args[0] === 'string') {
+    //             args[0] = setContentCheckOk(args[0]);
+    //         }
+    //     });
+    // }
+}
+
+/**
+ *  Handles Fetch requests and
+ * - Rewrite Googlevideo URLs to Proxy URLs (if necessary)
+ * - Store auth headers for the authentication of further unlock requests.
+ * - Add "content check ok" flags to request bodys
+ */
+function handleFetchRequest(url, requestOptions) {
+    const url_obj = new URL(url);
+    // const newGoogleVideoUrl = unlockGoogleVideo(url_obj);
+    // if (newGoogleVideoUrl) {
+    //     // Exclude credentials from Fetch Request
+    //     if (requestOptions.credentials) {
+    //         requestOptions.credentials = 'omit';
+    //     }
+    //     return newGoogleVideoUrl.toString();
+    // }
+
+    if (url_obj.pathname.indexOf('/youtubei/') === 0 && isObject(requestOptions.headers)) {
+        // Store auth headers in authStorage for further usage.
+        for (let headerName in requestOptions.headers) {
+            if (Config.GOOGLE_AUTH_HEADER_NAMES.includes(headerName)) {
+                set(headerName, requestOptions.headers[headerName]);
+            }
+        }
+    }
+
+    // if (Config.SKIP_CONTENT_WARNINGS && ['/youtubei/v1/player', '/youtubei/v1/next'].includes(url_obj.pathname)) {
+    //     // Add content check flags to player and next request (this will skip content warnings)
+    //     requestOptions.body = setContentCheckOk(requestOptions.body);
+    // }
 }
 
 function processYtData(ytData) {
@@ -567,11 +641,27 @@ function processYtData(ytData) {
 try {
     attach$3(processYtData);
     attach$2(processYtData);
+    attach(handleXhrOpen);
+    attach$1(handleFetchRequest);
 
 } catch (err) {
     console.log(err, 'Error while attaching data interceptors');
 }
 
+function attach$4(obj, prop, onCall) {
+    if (!obj || typeof obj[prop] !== 'function') {
+        return;
+    }
+
+    let original = obj[prop];
+
+    obj[prop] = function() {
+        try {
+            onCall(arguments);
+        } catch {}
+        original.apply(this, arguments);
+    };
+}
 
 let ageRestricted = false
 let live = false
@@ -657,6 +747,62 @@ function attach$2(onJsonDataReceived) {
     unsafeWindow.JSON.parse = function() {
         const data = nativeJSONParse.apply(this, arguments);
         return isObject(data) ? onJsonDataReceived(data) : data;
+    };
+}
+
+function attach$1(onRequestCreate) {
+    if (typeof unsafeWindow.Request !== 'function') {
+        return;
+    }
+
+    unsafeWindow.Request = new Proxy(unsafeWindow.Request, {
+        construct(target, args) {
+            let [url, options] = args;
+            try {
+                if (typeof url === 'string') {
+                    if (url.indexOf('/') === 0) {
+                        url = window.location.origin + url;
+                    }
+
+                    if (url.indexOf('https://') !== -1) {
+                        const modifiedUrl = onRequestCreate(url, options);
+
+                        if (modifiedUrl) {
+                            args[0] = modifiedUrl;
+                        }
+                    }
+                }
+            } catch (err) {
+                console.log(err, `Failed to intercept Request()`);
+            }
+
+            return Reflect.construct(target, args);
+        },
+    });
+}
+
+function attach(onXhrOpenCalled) {
+    unsafeWindow.XMLHttpRequest.prototype.open = function(...args) {
+        let [method, url] = args;
+        try {
+            if (typeof url === 'string') {
+                if (url.indexOf('/') === 0) {
+                    url = window.location.origin + url;
+                }
+
+                if (url.indexOf('https://') !== -1) {
+                    const modifiedUrl = onXhrOpenCalled(method, url, this);
+
+                    if (modifiedUrl) {
+                        args[1] = modifiedUrl;
+                    }
+                }
+            }
+        } catch (err) {
+            console.log(err, `Failed to intercept XMLHttpRequest.open()`);
+        }
+
+        nativeXMLHttpRequestOpen.apply(this, args);
     };
 }
 
@@ -772,7 +918,7 @@ class fLoader2 extends Hls.DefaultConfig.loader {
     }
 }
 // const desc = Object.getOwnPropertyDescriptor(Hls.DefaultConfig.abrController.prototype, "nextAutoLevel")
-// 
+//
 // Object.defineProperty(Hls.DefaultConfig.abrController.prototype, "nextAutoLevel", {
 //     get: desc.get,
 //     set: new Proxy(desc.set, {
@@ -1008,7 +1154,7 @@ function setupPlayer() {
                 if (panel) {
                     this.disconnect()
                     addTo(panel)
-    
+
                     break label
                 }
             }
