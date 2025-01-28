@@ -4,7 +4,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.8
+// @version     1.81
 // @description Play the hls manifest from the ios player response. Based on https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass
 // @grant       GM_xmlhttpRequest
 // @grant       GM_registerMenuCommand
@@ -130,7 +130,7 @@ function sendInnertubeRequest(endpoint, payload, useAuth) {
     const xmlhttp = new XMLHttpRequest();
     xmlhttp.open('POST', `/youtubei/${endpoint}?key=${getYtcfgValue('INNERTUBE_API_KEY')}&prettyPrint=false`, false);
 
-    if (useAuth && isUserLoggedIn()) {
+    if (useAuth /*&& isUserLoggedIn()*/) {
         xmlhttp.withCredentials = true;
         Config.GOOGLE_AUTH_HEADER_NAMES.forEach((headerName) => {
             xmlhttp.setRequestHeader(headerName, get(headerName));
@@ -285,7 +285,7 @@ function getUnlockedPlayerResponse(videoId, reason, copy) {
     unlockStrategies.every((strategy, index) => {
         var _unlockedPlayerRespon6;
         // Skip strategy if authentication is required and the user is not logged in
-        if (strategy.skip || strategy.requiresAuth && !isUserLoggedIn()) return true;
+        // if (strategy.skip || strategy.requiresAuth && !isUserLoggedIn()) return true;
 
         console.log(`Trying Player Unlock Method #${index + 1} (${strategy.name})`);
 
