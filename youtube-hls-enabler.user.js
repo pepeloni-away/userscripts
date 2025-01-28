@@ -36,6 +36,21 @@ const console = {
     log: disableLogging ? function () {} : unsafeWindow.console.log
 }
 
+if (unsafeWindow.trustedTypes && unsafeWindow.trustedTypes.createPolicy) {
+    if (!unsafeWindow.trustedTypes.defaultPolicy) {
+        const fn = _ => _
+        trustedTypes.createPolicy('default', {
+            createHTML: fn,
+            createScriptURL: fn,
+            createScript: fn,
+        })
+    }
+    else {
+        console.log('there already is a default trustedtypes policy, should probably intercept it')
+    }
+}
+
+
 const VALID_PLAYABILITY_STATUSES = ['OK', 'LIVE_STREAM_OFFLINE'];
 const GOOGLE_AUTH_HEADER_NAMES = [
     // 'Authorization',
