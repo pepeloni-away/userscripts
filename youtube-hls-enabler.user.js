@@ -4,7 +4,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.81
+// @version     1.82
 // @description Play the hls manifest from the ios player response. Based on https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass
 // @grant       GM_xmlhttpRequest
 // @grant       GM_registerMenuCommand
@@ -728,13 +728,19 @@ function attach$3(onInitialData) {
             // don't run when https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass unlocked the video
             // don't run on live content
             if (!ageRestricted && !live && (isPremium1080pAvailable(playerResponse.playabilityStatus) || !onlyOnPremiumAvailable)) {
+                let a = true
                 if (!playerResponse.streamingData.__hlsManifestUrl) {
-                    unlockResponse$1(playerResponse)
-                    // console.log('unlock fn, obj', unlockResponse$1, playerResponse)
-                    // sharedPlayerElements.hlsUrl = playerResponse.streamingData.__hlsManifestUrl
+                    try {
+                        unlockResponse$1(playerResponse)
+                        // console.log('unlock fn, obj', unlockResponse$1, playerResponse)
+                        // sharedPlayerElements.hlsUrl = playerResponse.streamingData.__hlsManifestUrl
+                    } catch(e) {
+                        a = false
+                        console.log('unlock failed', e)
+                    }
                 }
                 sharedPlayerElements.hlsUrl = playerResponse.streamingData.__hlsManifestUrl
-                setupPlayer()
+                a && setupPlayer()
             }
 
             sharedPlayerElements.id = id
