@@ -4,7 +4,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.82
+// @version     1.83
 // @description Play the hls manifest from the ios player response. Based on https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass
 // @grant       GM_xmlhttpRequest
 // @grant       GM_registerMenuCommand
@@ -1205,6 +1205,24 @@ function hookHlsjs() {
 
     hls.loadSource(sharedPlayerElements.hlsUrl)
     hls.attachMedia(vid)
+
+    // hls.on(Hls.Events.MANIFEST_LOADED, (event, data) => {
+    //     console.log(data, 'aaaaaaaaaaaa')
+    // })
+
+    hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, (event, data) => {
+        // console.log(event, data)
+        if (data.audioTracks.length <= 1) {
+            return
+        }
+        const originalAudio = data.audioTracks.find(i => i.name.includes('original'))
+        if (originalAudio) {
+            hls.audioTrack = originalAudio.id
+        }
+        else {
+            console.log('failed to determine original audio stream')
+        }
+    })
 
     hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
         // console.log(event, data)
