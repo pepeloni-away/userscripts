@@ -4,7 +4,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.4
+// @version     1.5
 // @description 2/26/2023, 5:22:33 PM
 // @grant       none
 // @match       https://www.youtube.com/*
@@ -243,7 +243,7 @@
         }),
         configurable: true,
     });
-})();
+})/*()*/;// someone at youtube finally thought of this problem and put the save button first - july 16 2025
 
 (function betterDvr() {
     let done = false
