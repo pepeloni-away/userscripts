@@ -148,6 +148,9 @@ function sendInnertubeRequest(endpoint, payload, useAuth) {
     if (useAuth /*&& isUserLoggedIn()*/) {
         xmlhttp.withCredentials = true;
         Config.GOOGLE_AUTH_HEADER_NAMES.forEach((headerName) => {
+            if (headerName === 'X-Goog-Visitor-Id') {
+                xmlhttp.setRequestHeader(headerName, getYtcfgValue('VISITOR_DATA'))
+            } else
             xmlhttp.setRequestHeader(headerName, get(headerName));
         });
     }
