@@ -310,3 +310,28 @@ Object.defineProperty(Object.prototype, "response", {
         })
     }
 })();
+
+(function disableMininplayer(){
+// i usually open stuff in new tabs, the miniplayer only shows up when accidentally clicking a video in my watch later list and then go back to wl
+HTMLMediaElement.prototype.play = new Proxy(HTMLMediaElement.prototype.play, {
+    apply(target, thisArg, args) {
+        // console.log(arguments)
+        try {
+            if (
+                document.querySelector('.ytp-miniplayer-ui') &&
+                document.querySelector('.ytp-miniplayer-ui').style.display !== 'none'
+            ) {
+                document.querySelector('.ytp-miniplayer-close-button').click()
+                return // .play might be supposed to return a promise, undefined works for now
+            }
+        }
+        catch(e) {
+            console.log('fail', e)
+        }
+        return Reflect.apply(...arguments)
+    }
+})
+
+// maybe check video resize event instead of .play? as it is now the miniplayer doesn't close if the video was paused before going back to wl
+// i could just hide it with css script or ublock
+})();
