@@ -4,7 +4,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.83
+// @version     1.84
 // @description Play the hls manifest from the ios player response. Based on https://github.com/zerodytrash/Simple-YouTube-Age-Restriction-Bypass
 // @grant       GM_xmlhttpRequest
 // @grant       GM_registerMenuCommand
@@ -1258,11 +1258,18 @@ function unhookHlsjs() {
     const vid = hls.media
     hls.detachMedia(vid) // this also removes the src attribute
 
-    if (sharedPlayerElements.pre_hlsjs_hook_src) {
-        vid.src = sharedPlayerElements.pre_hlsjs_hook_src
-        delete sharedPlayerElements.pre_hlsjs_hook_src
-    }
-    // vid.src = undefined // it seems youtube fixes this almost instantly
+    // if (sharedPlayerElements.pre_hlsjs_hook_src) {
+    //     vid.src = sharedPlayerElements.pre_hlsjs_hook_src
+    //     delete sharedPlayerElements.pre_hlsjs_hook_src
+    // }
+    vid.src = undefined // it seems youtube fixes this almost instantly
+    // setTimeout(_=>{
+    //     if (confirm('set vid src to undefined?')) {
+    //         vid.src = undefined
+    //         // vid.src = 'https://path/to/video.webm'
+    //         // vid.src = 'https://localhost/none'
+    //     }
+    // }, 10e3)
 }
 
 
