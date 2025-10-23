@@ -4,7 +4,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.5
+// @version     1.6
 // @description 2/26/2023, 5:22:33 PM
 // @grant       none
 // @match       https://www.youtube.com/*
@@ -184,66 +184,70 @@
 
 /* the save button should never be pushed to the overflow menu by the new ocasional purpose buttons they keep adding */
 (function shitButtons() {
-    const mode = "single", // "single" -> only show save button | "flip" -> flip buttons so that save is first instead of last
-        // flip will sometimes not show buttons at all when navigating youtube, but will work if you press back and forward page buttons....flip
-        // ===
-        // i think it's because youtube will just remove buttons from the array without checking, so when you go from a video that
-        // originally had clip, thanks and save, to one that only has save, youtube will remove the last 2 buttons, but since the script
-        // removed them already, youtube will remove the last button, save.
-        // ====
-        // don't feel like dealing with that
-        descriptor = Object.getOwnPropertyDescriptor(
-            Object.prototype,
-            "playerResponse"
-        ) ?? {
-            set(value) {
-                this._YRNAB_playerResponse = value;
-            },
-            get() {
-                return this._YRNAB_playerResponse;
-            },
-        };
-    Object.defineProperty(Object.prototype, "playerResponse", {
-        set: descriptor.set,
-        get: new Proxy(descriptor.get, {
-            apply(target, thisArg, args) {
-                const { response } = thisArg;
-                rm: if (response !== null && typeof response === "object") {
-                    // console.log(response)
-                    let arr
-                    // there are some other response objects with different structure we don't want to mess with, for example on search page
-                    try {
-                        arr =
-                            response.contents.twoColumnWatchNextResults.results.results
-                                .contents[0].videoPrimaryInfoRenderer.videoActions.menuRenderer
-                                .flexibleItems;
+const descriptor = Object.getOwnPropertyDescriptor(Object.prototype, "response") ?? {
+    get() {
+        return this._set
+    },
+    set(value) {
+        // console.log(this, 'this')
+        this._set = value
+    }
+}
 
-                        // remove share
-                        const s = response.contents.twoColumnWatchNextResults.results.results
-                        .contents[0].videoPrimaryInfoRenderer.videoActions.menuRenderer
-                        .topLevelButtons
-                        s.length === 2 && s.pop()
-                    } catch (e) {
-                        break rm;
+Object.defineProperty(Object.prototype, "response", {
+    get: descriptor.get,
+    set: new Proxy(descriptor.set, {
+        apply(target, thisArg, args) {
+            label: if (args[0] != null && typeof args[0] === "object"){
+                // console.log(arguments)
+                try {
+                    const {
+                        items,
+                        flexibleItems
+                    } = args[0].rawResponse.response.contents.twoColumnWatchNextResults.results.results.contents[0].videoPrimaryInfoRenderer.videoActions.menuRenderer
+                    // console.log('items', items, 'flexibleitems', flexibleItems)
+                    if (JSON.stringify([items, flexibleItems]).includes("PLAYLIST_ADD")) {
+                        // console.log('we have add to playlist option')
+                        if (JSON.stringify(items).includes("PLAYLIST_ADD")) {
+                            // console.log('add to playlist in in the popup menu')
+                            const playlist_add_button_index = items.findIndex(i => JSON.stringify(i).includes('PLAYLIST_ADD'))
+                            const playlist_add_button_menuItem = items.splice(playlist_add_button_index, 1)[0]
+
+                            const trackingParams = playlist_add_button_menuItem.menuServiceItemRenderer.trackingParams
+                            const clickTrackingParams = playlist_add_button_menuItem.menuServiceItemRenderer.serviceEndpoint.clickTrackingParams
+                            const uiType = playlist_add_button_menuItem.menuServiceItemRenderer.serviceEndpoint.commandMetadata.interactionLoggingCommandMetadata.screenVisualElement.uiType
+                            const parms = playlist_add_button_menuItem.menuServiceItemRenderer.serviceEndpoint.showSheetCommand.panelLoadingStrategy.requestTemplate.params
+                            // console.log(playlist_add_button_menuItem, trackingParams, clickTrackingParams, uiType)
+                            const playlist_add_button_topLevelButton_template = `{"buttonViewModel":{"iconName":"PLAYLIST_ADD","title":"Save","onTap":{"serialCommand":{"commands":[{"logGestureCommand":{"gestureType":"GESTURE_EVENT_TYPE_LOG_GENERIC_CLICK","trackingParams":"${trackingParams}"}},{"innertubeCommand":{"clickTrackingParams":"${clickTrackingParams}","commandMetadata":{"interactionLoggingCommandMetadata":{"screenVisualElement":{"uiType":${uiType}}}},"showSheetCommand":{"panelLoadingStrategy":{"requestTemplate":{"panelId":"PAadd_to_playlist","params":"${parms}"},"screenVe":${uiType}},"contextualSheetPresentationConfig":{"expandToFullWidth":true}}}}]}},"accessibilityText":"Save to playlist","style":"BUTTON_VIEW_MODEL_STYLE_MONO","trackingParams":"${trackingParams}","isFullWidth":false,"type":"BUTTON_VIEW_MODEL_TYPE_TONAL","buttonSize":"BUTTON_VIEW_MODEL_SIZE_DEFAULT","tooltip":"Save"}}`
+                            const playlist_add_button_flexibleItem = {
+                                menuFlexibleItemRenderer: {
+                                    menuItem: playlist_add_button_menuItem,
+                                    topLevelButton: JSON.parse(playlist_add_button_topLevelButton_template)
+                                }
+                            }
+                            playlist_add_button_flexibleItem.menuFlexibleItemRenderer.topLevelButton.buttonViewModel.title = "Säve"
+                            const first_flexible_button_not_download_index = flexibleItems.findIndex(i => i.menuFlexibleItemRenderer.topLevelButton.downloadButtonRenderer === undefined)
+                            const first_flexible_button_not_download = flexibleItems.splice(first_flexible_button_not_download_index, 1)[0]
+                            flexibleItems.splice(0, 0, playlist_add_button_flexibleItem)
+                            // console.log('moved add to playlist to top level buttons')
+                            items.splice(0, 0, first_flexible_button_not_download.menuFlexibleItemRenderer.menuItem)
+                            // console.log('moved original first top level button to pupup menu')
+
+                        }
                     }
-                    // console.log(arr)
-                    if (mode === "single")
-                        arr.length > 1 && arr.splice(0, arr.length - 1);
-                    // if (mode === "flip") !arr.flipped && (arr.flipped = true, arr.reverse()) // fix flip
-                    // if (mode === "flip") arr.length > 1 && arr[0].menuFlexibleItemRenderer.topLevelButton.buttonRenderer.tooltip !== "Save" && arr.reverse()
-                    /*if (mode === "flip") arr = arr.sort((a, b) => {
-                                  // console.log(a, b); return 1
-                                  if (b.menuFlexibleItemRenderer.topLevelButton.buttonRenderer.tooltip === "Save") return 1
-                                  return -1
-                              })
-                              console.log("after", arr.map(e => e.menuFlexibleItemRenderer.topLevelButton.buttonRenderer.tooltip))*/
                 }
-                return Reflect.apply(...arguments);
-            },
-        }),
-        configurable: true,
-    });
-})/*()*/;// someone at youtube finally thought of this problem and put the save button first - july 16 2025
+                catch(e) {
+                    console.log('failed', e)
+                    break label
+                }
+            }
+            return Reflect.apply(...arguments)
+        }
+    }),
+    configurable: true,
+})
+// another option would be to make a fake top level save button that opens the popup and clicks the real one on click
+})();
 
 (function betterDvr() {
     let done = false
