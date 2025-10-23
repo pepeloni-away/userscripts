@@ -5,7 +5,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     1.3
+// @version     1.31
 // @description Open videos from webpages in android video players
 // @grant       GM_log
 // @grant       GM_getValue
@@ -18,6 +18,7 @@
 // @match       https://aniwave.to/watch/*
 // @match       https://animesuge.to/anime/*
 // @match       https://anix.to/anime/*
+// @match       https://anivibe.net/*
 // @match       https://vizcloud.*/e/*
 // @match       https://vizcloud.*/embed/*
 // @match       https://vidstream.*/e/*
@@ -49,7 +50,12 @@
 // @exclude     https://hanime.tv/omni-player/*
 //
 // @match       https://marin.moe/*
-// @match       https://plyr.link/p/player.html#*
+// @match       https://plyr.link/p/player.html*
+//
+// @match       https://animekai.to/watch/*
+// @match       https://animekai.ac/watch/*
+// @match       https://megaup.cc/e/*
+// @match       https://megaup.live/e*
 // ==/UserScript==
 
 const savePrefs = false // Saves changes you make in config and uses them after updates set config back to default.
@@ -875,8 +881,12 @@ function startIntent(url, video) {
 
             function handler() {
                 flog("we back")
-                fetch(_rentry.rentryUrl.replace("/edit", "/raw"))
-                    .then(rsp => rsp.json())
+                /* rentry wants you to contact support for an access code to use /raw now */
+                // fetch(_rentry.rentryUrl.replace("/edit", "/raw"))
+                //     .then(rsp => rsp.json())
+                fetch(_rentry.rentryUrl.replace("/edit", ""))
+                    .then(rsp => rsp.text())
+                    .then(rsp => JSON.parse(rsp.match(RegExp('{"progress[^}]+}'))))
                     .then(rsp => {
                         let progress = rsp.progress
                         let total = rsp.total
