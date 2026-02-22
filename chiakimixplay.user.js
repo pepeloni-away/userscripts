@@ -4,7 +4,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     2.0
+// @version     2.1
 // @description Adds some AniMixPlay features to Chiaki
 // @grant       GM_xmlhttpRequest
 // @match       https://chiaki.site/?/tools/watch_order/*
@@ -48,7 +48,7 @@ function addExternalLinks() {
     self.addEventListener("load", pageLoaded)
 
     function pageLoaded() {
-        const targets = document.body.firstElementChild.querySelectorAll(".uk-text-muted.uk-text-small")
+        const targets = document.querySelectorAll(".wo_meta")
         targets.forEach(addButtons)
         function addButtons(e) {
             const malId = e.parentElement.parentElement.dataset.id
@@ -61,7 +61,7 @@ function addExternalLinks() {
             const btn = document.createElement("button")
             btn.innerText = "grab links"
             btn.style.cssText = "border: medium none; background: transparent; color: inherit; cursor: pointer; padding: 0px;"
-            btn.onclick = handleGrabButtonClick__animix(malId)
+            // btn.onclick = handleGrabButtonClick__animix(malId)
             btn.onclick = handleGrabButtonClick__kuroinu(malId)
 
             e.append(" | ", btn)
@@ -460,33 +460,33 @@ function addSpinnerCss() {
     width: 70px;
     text-align: center; */
   }
-  
+
   .spinner > div {
     width: 18px;
     height: 18px;
     background-color: #333;
-  
+
     border-radius: 100%;
     display: inline-block;
     -webkit-animation: sk-bouncedelay 1.4s infinite ease-in-out both;
     animation: sk-bouncedelay 1.4s infinite ease-in-out both;
   }
-  
+
   .spinner .bounce1 {
     -webkit-animation-delay: -0.32s;
     animation-delay: -0.32s;
   }
-  
+
   .spinner .bounce2 {
     -webkit-animation-delay: -0.16s;
     animation-delay: -0.16s;
   }
-  
+
   @-webkit-keyframes sk-bouncedelay {
     0%, 80%, 100% { -webkit-transform: scale(0) }
     40% { -webkit-transform: scale(1.0) }
   }
-  
+
   @keyframes sk-bouncedelay {
     0%, 80%, 100% {
       -webkit-transform: scale(0);
