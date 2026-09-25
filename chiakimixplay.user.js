@@ -4,7 +4,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     2.1
+// @version     2.2
 // @description Adds some AniMixPlay features to Chiaki
 // @grant       GM_xmlhttpRequest
 // @match       https://chiaki.site/?/tools/watch_order/*
@@ -247,7 +247,8 @@ function addAnimeInfo() {
 
                 function fillDetailsAndSynopsis(d, s, dSpinner, sSpinner, malId) {
                     GM_xmlhttpRequest({
-                        url: `https://api.jikan.moe/v4/anime/${malId}/full`,
+                        // url: `https://api.jikan.moe/v4/anime/${malId}/full`,
+                        url: `https://api.tenrai.org/v1/anime/${malId}/full`,
                         responseType: "json",
                         onload: handleXhr,
                     })
