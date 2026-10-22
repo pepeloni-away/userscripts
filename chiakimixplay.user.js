@@ -148,7 +148,7 @@ function addExternalLinks() {
 
                         // const links = responseObject.response.streams // they changed the api a bit
                         const links = Object.values(responseObject.response.streams).flat()
-                        const no = ["AniMixPlay", "Crunchyroll", "Vrv", "Funimation", "Hulu", "Netflix", "Hidive"]
+                        const no = ["AniMixPlay", "Crunchyroll", "Vrv", "Funimation", "Hulu", "Netflix", "Hidive", "BiliBili", "AnimeBox", "ADN", "Disney+", "Apple TV"]
 
                         const anchors = links
                             .filter(a => !no.includes(a.site))
