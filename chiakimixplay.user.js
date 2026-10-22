@@ -4,7 +4,7 @@
 // @author      pploni
 // @run-at      document-start
 // @insert-into page
-// @version     2.2
+// @version     2.3
 // @description Adds some AniMixPlay features to Chiaki
 // @grant       GM_xmlhttpRequest
 // @match       https://chiaki.site/?/tools/watch_order/*
@@ -153,6 +153,7 @@ function addExternalLinks() {
                         const anchors = links
                             .filter(a => !no.includes(a.site))
                             .map(fixEpisodePlacehoder)
+                            .map(fixAnimepahe)
                             .flatMap(makeAnchor)
 
                         function fixEpisodePlacehoder(linkObject) {
@@ -160,6 +161,18 @@ function addExternalLinks() {
                                 o.url = o.url.replace('{ep}', '1')
                                 return o
                             })
+                            return linkObject
+                        }
+
+                        function fixAnimepahe(linkObject) {
+                            if (linkObject.site === 'animepahe') {
+                                console.log(linkObject)
+                                linkObject.links[0].url = 'https://kuroiru.co' + linkObject.links[0].url
+                                // fallback to animepahe serach api if kuroiru redirect fails in the future
+                                // https://animepahe.pw/api?m=search&q=re:zero%204
+                            } else {
+                                return linkObject
+                            }
                             return linkObject
                         }
 
